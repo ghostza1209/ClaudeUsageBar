@@ -135,3 +135,11 @@ private func cost(_ usage: String, model: String = "m") -> Double {
     #expect(try title(["-w/s.jsonl": [line(at: "2026-10-06T05:00:00.000Z", usage: #""input_tokens":1000000"#)]]) == "$0.00")
     #expect(try title(["-w/s.jsonl": [line(usage: #""input_tokens":18420000"#)]]) == "$18.42")
 }
+
+@Test func titleShowsATrailingWarningWhileTheWrapperIsNotInstalled() {
+    #expect(titleWithWarning("$18.42", warning: false) == "$18.42")
+    #expect(titleWithWarning("$18.42", warning: true) == "$18.42 ⚠")
+    #expect(titleWithWarning("—", warning: true) == "— ⚠")
+    #expect(titleWithWarning(nil, warning: false) == nil)  // icon only while scanning
+    #expect(titleWithWarning(nil, warning: true) == "⚠")
+}

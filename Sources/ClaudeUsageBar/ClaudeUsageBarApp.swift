@@ -20,10 +20,16 @@ struct ClaudeUsageBarApp: App {
     }
 }
 
-/// Menu bar title: nil (icon only) while the launch pass runs, then refreshed by FSEvents and at midnight.
-/// The Usage tab's `summary` is recomputed (off the main thread) only while the popover is open.
+/// Menu bar title: icon only while the launch pass runs, then refreshed by FSEvents and at midnight, with a trailing ⚠
+/// while the statusline wrapper is not installed. The Usage tab's `summary` is recomputed (off the main thread) only
+/// while the popover is open.
 @MainActor @Observable final class Usage {
-    var title: String?
+    /// Today's $ (or `—`); nil while the launch pass runs.
+    private var baseTitle: String?
+    var title: String? { titleWithWarning(baseTitle, warning: !wrapperInstalled) }
+    var wrapperInstalled = true
+    /// Why the last Install click failed.
+    var wrapperError: String?
     var summary: UsageSummary?
     /// Files handled / total during the launch pass; nil once it is done.
     var scan: (done: Int, total: Int)? = (0, 0)
@@ -40,7 +46,7 @@ struct ClaudeUsageBarApp: App {
         didSet { if billingCycleStartDay != oldValue && popoverOpen { recompute() } }
     }
     @ObservationIgnored var popoverOpen = false {
-        didSet { if popoverOpen && !oldValue { recompute() } }
+        didSet { if popoverOpen && !oldValue { recompute(); refreshWrapper() } }
     }
     @ObservationIgnored private var store = RecordStore()
     @ObservationIgnored private var generation = 0
@@ -53,10 +59,15 @@ struct ClaudeUsageBarApp: App {
     @ObservationIgnored private var midnight: Timer?
     @ObservationIgnored private var priceTimer: Timer?
     private let priceStore: PriceStore
+    private let wrapper: StatuslineWrapper
 
     init() {
-        let home = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".claude")
-        let support = URL.applicationSupportDirectory.appending(path: "ClaudeUsageBar")
+        var home = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".claude")
+        var support = URL.applicationSupportDirectory.appending(path: "ClaudeUsageBar")
+        // Manual testing: run against a throwaway tree instead of the real ~/.claude and Application Support.
+        if let sandbox = ProcessInfo.processInfo.environment["CLAUDE_USAGE_BAR_SANDBOX"] {
+            (home, support) = (URL(filePath: sandbox).appending(path: ".claude"), URL(filePath: sandbox).appending(path: "support"))
+        }
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         logs = Logs(claudeHome: home, cacheURL: support.appending(path: "records.json"))
         let projects = home.appending(path: "projects").resolvingSymlinksInPath().path
@@ -65,6 +76,8 @@ struct ClaudeUsageBarApp: App {
             try await URLSession.shared.data(from: URL(string: "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json")!).0
         }
         supportPrefix = support.resolvingSymlinksInPath().path + "/"
+        wrapper = StatuslineWrapper(claudeHome: home, supportDir: support)
+        wrapperInstalled = wrapper.isInstalled()
 
         Task(priority: .background) {
             (prices, pricesFetchedAt) = await (priceStore.table, priceStore.fetchedAt)
@@ -95,7 +108,7 @@ struct ClaudeUsageBarApp: App {
     }
 
     private func applied(_ result: (title: String, store: RecordStore)) {
-        (title, store, scan) = (result.title, result.store, nil)
+        (baseTitle, store, scan) = (result.title, result.store, nil)
         hasLogs = !store.records.isEmpty
         if popoverOpen { recompute() }
     }
@@ -147,16 +160,30 @@ struct ClaudeUsageBarApp: App {
         guard case .success = result else { return result }
         armPriceTimer()
         (prices, pricesFetchedAt) = await (priceStore.table, priceStore.fetchedAt)
-        if title != nil { title = await logs.title(prices: prices) }
+        if baseTitle != nil { baseTitle = await logs.title(prices: prices) }
         if popoverOpen { recompute() }
         return result
+    }
+
+    /// Detection runs at launch and on every popover open.
+    private func refreshWrapper() { wrapperInstalled = wrapper.isInstalled() }
+
+    /// The Install button: chains the current statusline and points Claude Code at the wrapper.
+    func installWrapper() {
+        do {
+            try wrapper.install()
+            wrapperError = nil
+        } catch {
+            wrapperError = error.localizedDescription
+        }
+        refreshWrapper()
     }
 
     /// Midnight, `NSCalendarDayChanged` or wake: re-arm the timer and roll Today in the title.
     private func dayMayHaveChanged() {
         armMidnight()
         Task {
-            if title != nil { title = await logs.title(prices: prices) }
+            if baseTitle != nil { baseTitle = await logs.title(prices: prices) }
             if popoverOpen { recompute() }
         }
     }
@@ -236,8 +263,21 @@ struct Popover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             GroupBox {
-                Text("No Plan limits yet.").font(.caption).foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if usage.wrapperInstalled {
+                    Text("No Plan limits yet.").font(.caption).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Wrapper not installed").font(.caption).foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Install…") { usage.installWrapper() }.controlSize(.small)
+                        }
+                        if let error = usage.wrapperError {
+                            Text(error).font(.caption).foregroundStyle(.red)
+                        }
+                    }
+                }
             } label: {
                 Text("Plan limits").font(.caption.bold())
             }
