@@ -1,15 +1,35 @@
 import AppKit
 import SwiftUI
+import UsageCore
 
 @main
 struct ClaudeUsageBarApp: App {
+    @State private var usage = Usage()
+
     var body: some Scene {
-        MenuBarExtra("Claude Usage", systemImage: "sparkle") {
+        MenuBarExtra {
             Popover()
+        } label: {
+            Image(systemName: "sparkle")
+            if let title = usage.title { Text(title) }
         }
         .menuBarExtraStyle(.window)
         Settings {
             Text("Settings").frame(width: 360, height: 200)
+        }
+    }
+}
+
+/// Menu bar title: nil (icon only) while the cold scan runs.
+@MainActor @Observable final class Usage {
+    var title: String?
+
+    init() {
+        Task {
+            let store = await Task.detached(priority: .background) {
+                scanUsageLogs(claudeHome: FileManager.default.homeDirectoryForCurrentUser.appending(path: ".claude"))
+            }.value
+            title = menuBarTitle(store, prices: .bundled, now: .now, calendar: .current)
         }
     }
 }

@@ -7,8 +7,10 @@ cd "$(dirname "$0")/.."
 swift build -c release --product ClaudeUsageBar
 app=.build/ClaudeUsageBar.app
 rm -rf "$app"
-mkdir -p "$app/Contents/MacOS"
-cp "$(swift build -c release --show-bin-path)/ClaudeUsageBar" "$app/Contents/MacOS/"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+bin=$(swift build -c release --show-bin-path)
+cp "$bin/ClaudeUsageBar" "$app/Contents/MacOS/"
+cp -R "$bin/ClaudeUsageBar_UsageCore.bundle" "$app/Contents/Resources/"
 cat > "$app/Contents/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
