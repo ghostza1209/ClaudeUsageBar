@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage(Usage.notificationsEnabledKey) private var notificationsEnabled = true
     @AppStorage(Usage.warningThresholdKey) private var warning = 80
     @AppStorage(Usage.criticalThresholdKey) private var critical = 95
+    @AppStorage(Usage.gaugeColorKey) private var gaugeColor = GaugeColor.claude
     @State private var loginStatus = SMAppService.mainApp.status
     @State private var loginError: String?
     @State private var updatingPrices = false
@@ -28,6 +29,17 @@ struct SettingsView: View {
                 if let loginError { note(loginError, .red) }
                 stepper("Billing-cycle start day", "\(billingCycleStartDay)", $billingCycleStartDay, 1...31, step: 1)
                 note("Months shorter than this use their last day.")
+                LabeledContent("Menu bar colour") {
+                    HStack(spacing: 8) {
+                        ForEach(GaugeColor.allCases, id: \.self) { choice in
+                            Button { gaugeColor = choice } label: {
+                                Circle().fill(choice.swiftColor).frame(width: 14, height: 14)
+                                    .overlay { Circle().strokeBorder(.primary, lineWidth: gaugeColor == choice ? 1.5 : 0).padding(-3) }
+                            }
+                            .buttonStyle(.plain).help(choice.title).accessibilityLabel(choice.title)
+                        }
+                    }
+                }
             }
             Card("Notifications") {
                 LabeledContent("Plan-limit notifications") {

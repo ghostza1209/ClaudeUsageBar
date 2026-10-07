@@ -5,30 +5,50 @@ import UsageCore
 @main
 struct ClaudeUsageBarApp: App {
     @State private var usage = Usage()
+    @AppStorage(Usage.gaugeColorKey) private var gaugeColor = GaugeColor.claude
 
     var body: some Scene {
         MenuBarExtra {
             Popover(usage: usage)
         } label: {
             let gauge = usage.menuBarGauge
-            Image(nsImage: gaugeImage(percent: gauge.percent))
+            Image(nsImage: gaugeImage(percent: gauge.percent, color: gaugeColor.nsColor))
             Text(gauge.text)
         }
         .menuBarExtraStyle(.window)
     }
 }
 
-/// A template (so it follows the menu bar tint) pill: dim track, solid fill for `percent` used.
-private func gaugeImage(percent: Double) -> NSImage {
+/// Menu bar gauge colours. `claude` is Claude Code's clay orange; `auto` follows the menu bar tint.
+enum GaugeColor: String, CaseIterable {
+    case claude, blue, green, purple, pink, auto
+
+    var title: String { self == .auto ? "Match menu bar" : self == .claude ? "Claude Code orange" : rawValue.capitalized }
+    var nsColor: NSColor? {
+        switch self {
+        case .claude: NSColor(srgbRed: 0xD9 / 255, green: 0x77 / 255, blue: 0x57 / 255, alpha: 1)
+        case .blue: .systemBlue
+        case .green: .systemGreen
+        case .purple: .systemPurple
+        case .pink: .systemPink
+        case .auto: nil
+        }
+    }
+    var swiftColor: Color { nsColor.map(Color.init(nsColor:)) ?? .primary }
+}
+
+/// A pill: dim track, fill for `percent` used. With a colour it is drawn as is (the track a mid grey that reads on
+/// light and dark bars); without one it is a template, so it follows the menu bar tint.
+private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     let image = NSImage(size: NSSize(width: 28, height: 6), flipped: false) { rect in
-        NSColor.black.withAlphaComponent(0.3).setFill()
+        (color == nil ? NSColor.black.withAlphaComponent(0.3) : NSColor.gray.withAlphaComponent(0.45)).setFill()
         NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3).fill()
-        NSColor.black.setFill()
+        (color ?? .black).setFill()
         let fill = NSRect(x: 0, y: 0, width: rect.width * min(max(percent, 0), 100) / 100, height: rect.height)
         NSBezierPath(roundedRect: fill, xRadius: 3, yRadius: 3).fill()
         return true
     }
-    image.isTemplate = true
+    image.isTemplate = color == nil
     return image
 }
 
@@ -67,6 +87,8 @@ private func gaugeImage(percent: Double) -> NSImage {
     static let criticalThresholdKey = "criticalThreshold"  // default 95
     /// `@AppStorage` key (Bool, default true) for Plan-limit notifications; ticket 24 edits it and requests permission on enable.
     static let notificationsEnabledKey = "notificationsEnabled"
+    /// `@AppStorage` key (`GaugeColor` raw value, default `claude`) for the menu bar gauge.
+    static let gaugeColorKey = "gaugeColor"
 
     /// Key shared with the Settings UI (ticket 24).
     static let billingCycleStartDayKey = "billingCycleStartDay"
@@ -388,7 +410,7 @@ struct Popover: View {
                 .onGeometryChange(for: Double.self, of: { $0.size.height }) { contentHeight = $0 }
             }
             .scrollIndicators(.never)
-            .frame(height: min(contentHeight, showSettings ? 380 : 360))
+            .frame(height: min(contentHeight, showSettings ? 410 : 360))
             .animation(.snappy(duration: 0.2), value: tab)
             .animation(.snappy(duration: 0.2), value: showSettings)
             HStack {
