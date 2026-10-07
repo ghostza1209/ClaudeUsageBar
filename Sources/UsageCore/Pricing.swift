@@ -1,7 +1,7 @@
 import Foundation
 
 /// Per-token USD prices, as LiteLLM's `model_prices_and_context_window.json` spells them.
-struct ModelPrice: Decodable, Sendable {
+struct ModelPrice: Codable, Sendable {
     let input_cost_per_token: Double
     let output_cost_per_token: Double
     let cache_read_input_token_cost: Double
@@ -21,6 +21,19 @@ public struct PriceTable: Sendable {
 
     public init(json: Data) throws {
         models = try JSONDecoder().decode([String: ModelPrice].self, from: json)
+    }
+
+    /// Parses LiteLLM's full table, keeping only the first-party Claude entries (`claude-*`, `anthropic/claude-*`; not the
+    /// Bedrock/Vertex copies) that carry every price field.
+    /// Throws when none are left, so garbage never replaces a good table.
+    public init(litellm json: Data) throws {
+        struct Entry: Decodable {
+            let price: ModelPrice?
+            init(from decoder: Decoder) { price = try? ModelPrice(from: decoder) }
+        }
+        models = try JSONDecoder().decode([String: Entry].self, from: json)
+            .filter { $0.key.hasPrefix("claude-") || $0.key.hasPrefix("anthropic/claude-") }.compactMapValues(\.price)
+        if models.isEmpty { throw PriceUpdateError(message: "The downloaded table has no Claude prices") }
     }
 
     /// Claude-only LiteLLM snapshot shipped with the app.

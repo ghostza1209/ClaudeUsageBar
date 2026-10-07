@@ -40,6 +40,9 @@ struct UsageTab: View {
             Text("excludes \(s.unpricedModels) unpriced model\(s.unpricedModels == 1 ? "" : "s")")
                 .font(.caption).foregroundStyle(.orange)
         }
+        if let note = priceAgeNote(fetchedAt: usage.pricesFetchedAt, now: .now) {
+            Text(note).font(.caption).foregroundStyle(.secondary)
+        }
         HStack {
             ForEach([("Input", s.cycleTokens.input), ("Output", s.cycleTokens.output),
                      ("Cache read", s.cycleTokens.cacheRead), ("Cache write", s.cycleTokens.cacheWrite)], id: \.0) { name, n in

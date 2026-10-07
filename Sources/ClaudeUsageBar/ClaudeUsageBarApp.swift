@@ -28,6 +28,8 @@ struct ClaudeUsageBarApp: App {
     /// Files handled / total during the launch pass; nil once it is done.
     var scan: (done: Int, total: Int)? = (0, 0)
     var hasLogs = false
+    /// When the live price table was fetched; nil while it is the bundled snapshot. Popover age line, Settings (ticket 24).
+    var pricesFetchedAt: Date?
     /// Ticket 20 hook: something changed in the app's Application Support dir (the Plan-limits capture file,
     /// or this app's own cache write).
     var appSupportChanged: () -> Void = {}
@@ -42,12 +44,15 @@ struct ClaudeUsageBarApp: App {
     }
     @ObservationIgnored private var store = RecordStore()
     @ObservationIgnored private var generation = 0
+    @ObservationIgnored private var prices = PriceTable.bundled
 
     private let logs: Logs
     private let projectsPrefix: String
     private let supportPrefix: String
     @ObservationIgnored private var watcher: FileWatcher?
     @ObservationIgnored private var midnight: Timer?
+    @ObservationIgnored private var priceTimer: Timer?
+    private let priceStore: PriceStore
 
     init() {
         let home = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".claude")
@@ -56,14 +61,19 @@ struct ClaudeUsageBarApp: App {
         logs = Logs(claudeHome: home, cacheURL: support.appending(path: "records.json"))
         let projects = home.appending(path: "projects").resolvingSymlinksInPath().path
         projectsPrefix = projects + "/"
+        priceStore = PriceStore(supportDir: support) {
+            try await URLSession.shared.data(from: URL(string: "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json")!).0
+        }
         supportPrefix = support.resolvingSymlinksInPath().path + "/"
 
         Task(priority: .background) {
+            (prices, pricesFetchedAt) = await (priceStore.table, priceStore.fetchedAt)
             let progress: @Sendable (Int, Int, RecordStore) -> Void = { done, total, partial in
                 Task { @MainActor in self.scanProgress(done, total, partial) }
             }
-            applied(await logs.update(dirs: nil, onProgress: progress))
+            applied(await logs.update(dirs: nil, prices: prices, onProgress: progress))
         }
+        priceTick()
         watcher = FileWatcher(paths: [projects, support.path]) { [weak self] events in
             Task { @MainActor in self?.filesChanged(events) }
         }
@@ -81,7 +91,7 @@ struct ClaudeUsageBarApp: App {
         let logEvents = events.filter { $0.path.hasPrefix(projectsPrefix) }
         guard !logEvents.isEmpty else { return }
         let rescan = logEvents.contains { $0.flags & UInt32(kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagRootChanged) != 0 }
-        Task(priority: .background) { applied(await logs.update(dirs: rescan ? nil : logEvents.map(\.path))) }
+        Task(priority: .background) { applied(await logs.update(dirs: rescan ? nil : logEvents.map(\.path), prices: prices)) }
     }
 
     private func applied(_ result: (title: String, store: RecordStore)) {
@@ -98,9 +108,9 @@ struct ClaudeUsageBarApp: App {
 
     private func recompute() {
         generation += 1
-        let (id, store, day) = (generation, store, billingCycleStartDay)
+        let (id, store, day, prices) = (generation, store, billingCycleStartDay, prices)
         Task.detached(priority: .userInitiated) {
-            let summary = summarize(store, prices: .bundled, now: .now, calendar: .current, billingCycleStartDay: day)
+            let summary = summarize(store, prices: prices, now: .now, calendar: .current, billingCycleStartDay: day)
             await MainActor.run { if id == self.generation { self.summary = summary } }
         }
     }
@@ -115,11 +125,38 @@ struct ClaudeUsageBarApp: App {
         midnight = timer
     }
 
+    /// A one-shot 24 h timer, re-armed by every attempt, so a failed fetch retries next cycle.
+    private func priceTick() {
+        armPriceTimer()
+        Task { _ = await updatePrices() }
+    }
+
+    private func armPriceTimer() {
+        priceTimer?.invalidate()
+        let timer = Timer(timeInterval: 24 * 3600, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.priceTick() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        priceTimer = timer
+    }
+
+    /// Fetches the price table now (ticket 24's "Update now" calls this); on success restarts the 24 h timer and
+    /// re-prices the title and, if open, the summary. `pricesFetchedAt` is the age to display.
+    func updatePrices() async -> Result<Void, PriceUpdateError> {
+        let result = await priceStore.updateNow()
+        guard case .success = result else { return result }
+        armPriceTimer()
+        (prices, pricesFetchedAt) = await (priceStore.table, priceStore.fetchedAt)
+        if title != nil { title = await logs.title(prices: prices) }
+        if popoverOpen { recompute() }
+        return result
+    }
+
     /// Midnight, `NSCalendarDayChanged` or wake: re-arm the timer and roll Today in the title.
     private func dayMayHaveChanged() {
         armMidnight()
         Task {
-            if title != nil { title = await logs.title() }
+            if title != nil { title = await logs.title(prices: prices) }
             if popoverOpen { recompute() }
         }
     }
@@ -139,7 +176,7 @@ actor Logs {
     /// Reads appended bytes of the logs in `dirs` (nil: the whole tree) and returns the title and the records. The first
     /// call loads the cache, so it is the launch pass; `onProgress` reports the files handled so far.
     func update(
-        dirs: [String]?, onProgress: (@Sendable (Int, Int, RecordStore) -> Void)? = nil
+        dirs: [String]?, prices: PriceTable, onProgress: (@Sendable (Int, Int, RecordStore) -> Void)? = nil
     ) -> (title: String, store: RecordStore) {
         var cache = self.cache ?? .load(from: cacheURL)
         cache.update(claudeHome: claudeHome, dirs: dirs, now: .now, calendar: .current, progress: onProgress)
@@ -150,11 +187,11 @@ actor Logs {
             try? cache.save(to: cacheURL)
             lastSave = .now
         }
-        return (title(), cache.store)
+        return (menuBarTitle(cache.store, prices: prices, now: .now, calendar: .current), cache.store)
     }
 
-    func title() -> String {
-        menuBarTitle(cache?.store ?? RecordStore(), prices: .bundled, now: .now, calendar: .current)
+    func title(prices: PriceTable) -> String {
+        menuBarTitle(cache?.store ?? RecordStore(), prices: prices, now: .now, calendar: .current)
     }
 }
 
