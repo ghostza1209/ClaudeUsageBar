@@ -3,6 +3,12 @@ import Foundation
 public struct Tokens: Sendable, Equatable, Codable {
     public var input = 0, output = 0, cacheRead = 0, cacheWrite5m = 0, cacheWrite1h = 0
     public var total: Int { input + output + cacheRead + cacheWrite5m + cacheWrite1h }
+    public var cacheWrite: Int { cacheWrite5m + cacheWrite1h }
+
+    mutating func add(_ other: Tokens) {
+        input += other.input; output += other.output; cacheRead += other.cacheRead
+        cacheWrite5m += other.cacheWrite5m; cacheWrite1h += other.cacheWrite1h
+    }
 
     public init(input: Int = 0, output: Int = 0, cacheRead: Int = 0, cacheWrite5m: Int = 0, cacheWrite1h: Int = 0) {
         (self.input, self.output, self.cacheRead, self.cacheWrite5m, self.cacheWrite1h) = (input, output, cacheRead, cacheWrite5m, cacheWrite1h)

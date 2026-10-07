@@ -46,9 +46,13 @@ public struct UsageCache: Codable, Sendable {
     /// and prunes records older than today − 62 days. A log whose inode changed or that shrank below its offset is
     /// reparsed from 0; a deleted log keeps its records. `dirs` limits the pass to the `.jsonl` files directly inside
     /// those directories (what FSEvents reports); nil walks `<claudeHome>/projects`, newest mtime first.
-    /// Returns the number of bytes read.
+    /// `progress(done, total, partial)` reports the files handled so far and the records found so far, at most every
+    /// 250 ms and after the last file. Returns the number of bytes read.
     @discardableResult
-    public mutating func update(claudeHome: URL, dirs: [String]? = nil, now: Date, calendar: Calendar) -> Int {
+    public mutating func update(
+        claudeHome: URL, dirs: [String]? = nil, now: Date, calendar: Calendar,
+        progress: ((_ done: Int, _ total: Int, _ partial: RecordStore) -> Void)? = nil
+    ) -> Int {
         let cutoff = calendar.date(byAdding: .day, value: -62, to: calendar.startOfDay(for: now))!
         let paths: [String]
         if let dirs {
@@ -68,9 +72,11 @@ public struct UsageCache: Codable, Sendable {
             .sorted { $0.info.st_mtimespec.tv_sec > $1.info.st_mtimespec.tv_sec }
 
         var bytesRead = 0
-        var added: [UsageRecord] = []
         var dropped = false
-        for (path, info) in logs {
+        // New records go straight into `merged`, so `progress` sees cached records plus what this pass found.
+        if merged == nil { merged = mergeFiles() }
+        var lastProgress = ContinuousClock.now
+        for (index, (path, info)) in logs.enumerated() {
             let size = Int(info.st_size)
             var file = files[path] ?? LogFile(device: info.st_dev, inode: info.st_ino, size: 0, offset: 0)
             if file.device != info.st_dev || file.inode != info.st_ino || size < file.offset {
@@ -86,7 +92,7 @@ public struct UsageCache: Codable, Sendable {
                 bytesRead += appended.count
                 if let lastNewline = appended.lastIndex(of: 0x0A) {
                     let parsed = parseUsageLines(appended[...lastNewline])
-                    added += parsed
+                    for record in parsed { merged!.insert(record) }
                     var deduped = RecordStore()
                     for record in file.records + parsed { deduped.insert(record) }
                     file.records = Array(deduped.records)
@@ -95,6 +101,10 @@ public struct UsageCache: Codable, Sendable {
                 file.size = size
             }
             files[path] = file
+            if let progress, index + 1 == logs.count || lastProgress.duration(to: .now) > .milliseconds(250) {
+                progress(index + 1, logs.count, merged!)
+                lastProgress = .now
+            }
         }
 
         for path in files.keys {
@@ -102,11 +112,7 @@ public struct UsageCache: Codable, Sendable {
             files[path]!.records.removeAll { $0.timestamp < cutoff }
             dropped = dropped || files[path]!.records.count != count
         }
-        if dropped || merged == nil {
-            merged = mergeFiles()
-        } else {
-            for record in added { merged!.insert(record) }
-        }
+        if dropped { merged = mergeFiles() }
         if dirs == nil {
             let onDisk = Set(logs.map(\.path))
             files = files.filter { onDisk.contains($0.key) || !$0.value.records.isEmpty }

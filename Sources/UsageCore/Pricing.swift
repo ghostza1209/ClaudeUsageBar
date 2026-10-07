@@ -30,14 +30,17 @@ public struct PriceTable: Sendable {
     /// API list estimate of one record. An Unpriced model (no match, or `speed: fast`) adds nothing;
     /// advisor iterations are priced at their own model.
     public func cost(of record: UsageRecord) -> Double {
-        var sum = 0.0
-        if record.speed != "fast", let price = price(record.model) {
-            sum += price.cost(record.tokens) + Double(record.webSearchRequests) * 0.01
-        }
+        parts(of: record).reduce(0) { $0 + ($1.cost ?? 0) }
+    }
+
+    /// The record's own model, then each advisor iteration at its own model. `cost` is nil for an Unpriced model.
+    func parts(of record: UsageRecord) -> [(model: String, tokens: Tokens, cost: Double?)] {
+        let own = record.speed == "fast" ? nil : price(record.model)
+        var parts = [(record.model, record.tokens, own.map { $0.cost(record.tokens) + Double(record.webSearchRequests) * 0.01 })]
         for advisor in record.advisors {
-            sum += price(advisor.model)?.cost(advisor.tokens) ?? 0
+            parts.append((advisor.model, advisor.tokens, price(advisor.model)?.cost(advisor.tokens)))
         }
-        return sum
+        return parts
     }
 
     private func price(_ model: String) -> ModelPrice? {

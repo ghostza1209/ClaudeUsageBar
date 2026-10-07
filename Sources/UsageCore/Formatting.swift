@@ -2,6 +2,12 @@ import Foundation
 
 private let enUS = Locale(identifier: "en_US")
 
+/// Full dollar amount for the popover: `$3,124.50`; `<$0.01` for a non-zero amount that would round to nothing.
+public func fullCurrency(_ amount: Double) -> String {
+    if amount > 0 && amount < 0.01 { return "<$0.01" }
+    return amount.formatted(.currency(code: "USD").precision(.fractionLength(2)).locale(enUS))
+}
+
 /// Compact dollar amount for the menu bar title and trend axis: `$18.42`, `$123`, `$1.2k`.
 /// The band is chosen on the rounded value, so $999.60 shows `$1.0k`.
 public func compactCurrency(_ amount: Double) -> String {

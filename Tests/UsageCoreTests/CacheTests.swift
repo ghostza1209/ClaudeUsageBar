@@ -116,3 +116,13 @@ private func append(_ text: String, to url: URL) throws {
     cache.update(claudeHome: home, now: now.addingTimeInterval(86_400), calendar: bangkok)
     #expect(ids(cache) == [])
 }
+
+@Test func progressReportsFilesDoneAndPartialRecords() throws {
+    let home = try tree(["-w/a.jsonl": [line(id: "a")], "-w/b.jsonl": [line(id: "b")], "-w/c.jsonl": [line(id: "c"), line(id: "d")]])
+    var cache = UsageCache()
+    var calls: [(done: Int, total: Int, records: Int)] = []
+    cache.update(claudeHome: home, now: now, calendar: bangkok) { calls.append(($0, $1, $2.records.count)) }
+    // Calls are throttled, but the last file is always reported, with every record found.
+    #expect(calls.last! == (3, 3, 4))
+    #expect(calls.allSatisfy { $0.total == 3 })
+}
