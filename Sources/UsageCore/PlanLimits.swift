@@ -60,14 +60,17 @@ public func readPlanLimits(supportDir: URL, wrapperInstalled: Bool) -> PlanLimit
     return .ok(fiveHour: windows[0], sevenDay: windows[1], capturedAt: capturedAt)
 }
 
-public enum LimitLevel: Equatable, Sendable { case normal, warning, critical }
+public enum LimitLevel: Int, Comparable, Codable, Sendable {
+    case normal, warning, critical
+    public static func < (a: Self, b: Self) -> Bool { a.rawValue < b.rawValue }
+}
 
 /// Ring colour level: normal below `warning`, warning from `warning`, critical from `critical`.
 public func limitLevel(percent: Double, warning: Double, critical: Double) -> LimitLevel {
     percent >= critical ? .critical : percent >= warning ? .warning : .normal
 }
 
-/// A capture older than this is stale: the age line turns orange, and ticket 21 never notifies from it.
+/// A capture older than this is stale: the age line turns orange, and notifications never fire from it.
 public let planLimitsStaleAfter: TimeInterval = 600
 
 public func isStale(capturedAt: Date, now: Date) -> Bool { now.timeIntervalSince(capturedAt) > planLimitsStaleAfter }

@@ -41,9 +41,11 @@ struct ClaudeUsageBarApp: App {
     var hasLogs = false
     /// When the live price table was fetched; nil while it is the bundled snapshot. Popover age line, Settings (ticket 24).
     var pricesFetchedAt: Date?
-    /// `@AppStorage` keys (percent, Int) for the ring colours; ticket 24 edits them, ticket 21 reads them for notifications.
+    /// `@AppStorage` keys (percent, Int) for the ring colours; ticket 24 edits them; they also drive the notifications.
     static let warningThresholdKey = "warningThreshold"  // default 80
     static let criticalThresholdKey = "criticalThreshold"  // default 95
+    /// `@AppStorage` key (Bool, default true) for Plan-limit notifications; ticket 24 edits it and requests permission on enable.
+    static let notificationsEnabledKey = "notificationsEnabled"
 
     /// Key shared with the Settings UI (ticket 24).
     static let billingCycleStartDayKey = "billingCycleStartDay"
@@ -77,6 +79,10 @@ struct ClaudeUsageBarApp: App {
     @ObservationIgnored private var midnight: Timer?
     @ObservationIgnored private var priceTimer: Timer?
     @ObservationIgnored private var minuteTimer: Timer?
+    @ObservationIgnored private let notifier = NotificationPresenter()
+    /// What was already announced; kept in a file in the support dir so a relaunch does not announce a window twice.
+    @ObservationIgnored private var notificationState = NotificationState()
+    private let notificationStateURL: URL
     private let priceStore: PriceStore
     private let wrapper: StatuslineWrapper
     private let supportDir: URL
@@ -100,6 +106,13 @@ struct ClaudeUsageBarApp: App {
         supportDir = support
         wrapperInstalled = wrapper.isInstalled()
         planLimits = readPlanLimits(supportDir: support, wrapperInstalled: wrapperInstalled)
+        notificationStateURL = support.appending(path: "notification-state.json")
+        notificationState = (try? JSONDecoder().decode(NotificationState.self, from: Data(contentsOf: notificationStateURL))) ?? .init()
+        // A capture already on disk at launch is evaluated once permission is settled; the persisted state stops repeats.
+        Task {
+            await notifier.requestAuthorization()
+            notifyOnCrossing()
+        }
 
         Task(priority: .background) {
             (prices, pricesFetchedAt) = await (priceStore.table, priceStore.fetchedAt)
@@ -195,7 +208,24 @@ struct ClaudeUsageBarApp: App {
 
     private func refreshPlanLimits() {
         let latest = readPlanLimits(supportDir: supportDir, wrapperInstalled: wrapperInstalled)
-        if latest != planLimits { planLimits = latest }
+        guard latest != planLimits else { return }
+        planLimits = latest
+        notifyOnCrossing()
+    }
+
+    /// Runs the pure decision on the current read and posts what it fires; thresholds and the flag are read from the
+    /// same defaults the `@AppStorage` views edit.
+    private func notifyOnCrossing() {
+        let defaults = UserDefaults.standard
+        let result = planLimitNotifications(
+            state: notificationState, limits: planLimits, now: .now,
+            warning: Double(defaults.object(forKey: Self.warningThresholdKey) as? Int ?? 80),
+            critical: Double(defaults.object(forKey: Self.criticalThresholdKey) as? Int ?? 95),
+            enabled: defaults.object(forKey: Self.notificationsEnabledKey) as? Bool ?? true)
+        guard result.state != notificationState else { return }
+        notificationState = result.state
+        try? JSONEncoder().encode(result.state).write(to: notificationStateURL, options: .atomic)
+        for notification in result.fire { notifier.post(notification, now: .now) }
     }
 
     /// The Install button: chains the current statusline and points Claude Code at the wrapper.
