@@ -4,12 +4,19 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 Spec: [spec.md](../spec.md)
 
-- [ ] Package has `UsageCore` and `ClaudeUsageBar` targets, macOS 27+, no third-party dependencies
-- [ ] `scripts/bundle.sh` produces and opens a signed `.app`; `swift run` is not the supported path
-- [ ] Menu bar icon opens the popover with header placeholder, three tabs and a gear footer
-- [ ] Gear opens the Settings window in front
-- [ ] `swift test` passes with at least one real `UsageCore` test (e.g. the first piece needed by ticket 15 is fine to defer; a smoke-level test that asserts real behaviour)
+- [x] Package has `UsageCore` and `ClaudeUsageBar` targets, macOS 27+, no third-party dependencies
+- [x] `scripts/bundle.sh` produces and opens a signed `.app`; `swift run` is not the supported path
+- [x] Menu bar icon opens the popover with header placeholder, three tabs and a gear footer
+- [x] Gear opens the Settings window in front
+- [x] `swift test` passes with at least one real `UsageCore` test (e.g. the first piece needed by ticket 15 is fine to defer; a smoke-level test that asserts real behaviour)
+
+## Comments
+
+- Platform is `.macOS(.v27)`, which needs `swift-tools-version: 6.4`.
+- The real `UsageCore` test covers the compact currency formatter from the spec (`compactCurrency`), including the $99.995, $999.60 and $1,000 band edges and output under a `de_DE` process locale. The full formatter (`<$0.01`) is left for ticket 15.
+- Gear uses `SettingsLink` plus `NSApp.activate()`. Checked by hand: the Settings window opens on top of other windows. macOS cooperative activation may not make the app frontmost when another app holds focus.
+- The `.app` is built at `.build/ClaudeUsageBar.app`.
