@@ -55,35 +55,33 @@ struct ProcessesTab: View {
     let monitor: ProcessMonitor
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             if let rows = monitor.rows {
-                if rows.isEmpty {
-                    VStack(spacing: 6) {
-                        Image(systemName: "terminal").font(.title2)
-                        Text("no Claude Code sessions running").font(.caption)
-                    }
-                    .foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.vertical, 20)
-                }
+                if rows.isEmpty { EmptyNote("terminal", "no Claude Code sessions running") }
                 ForEach(rows, id: \.pid) { row($0) }
             }
             if let error = monitor.stopError {
                 Text(error).font(.caption).foregroundStyle(.red)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 260, alignment: .top)
     }
 
     private func row(_ s: ClaudeSession) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(s.cwd.split(separator: "/").last.map(String.init) ?? "/").font(.callout).lineLimit(1)
-                Text(s.cwd).font(.caption2).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+        Card {
+            HStack(spacing: 10) {
+                Image(systemName: "terminal").foregroundStyle(.secondary).frame(width: 18)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(s.cwd.split(separator: "/").last.map(String.init) ?? "/").font(.callout.weight(.medium)).lineLimit(1)
+                    Text(s.cwd).font(.caption2).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                }
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text("\(formatCPU(s.cpuPercent)) · \(formatMemory(s.rssBytes))").font(.caption.monospacedDigit())
+                    Text(formatUptime(-s.startTime.timeIntervalSinceNow)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                }
+                Button { monitor.stop(s.pid) } label: { Image(systemName: "stop.circle.fill").foregroundStyle(.red).font(.title3) }
+                    .buttonStyle(.borderless).help("Stop (SIGTERM)").accessibilityLabel("Stop session").disabled(monitor.stopping[s.pid] != nil)
             }
-            Spacer()
-            Text("\(formatCPU(s.cpuPercent)) · \(formatMemory(s.rssBytes)) · \(formatUptime(-s.startTime.timeIntervalSinceNow))")
-                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-            Button { monitor.stop(s.pid) } label: { Image(systemName: "xmark.circle") }
-                .buttonStyle(.borderless).help("Stop (SIGTERM)").disabled(monitor.stopping[s.pid] != nil)
         }
     }
 }

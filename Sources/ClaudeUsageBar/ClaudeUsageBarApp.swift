@@ -338,36 +338,48 @@ struct Popover: View {
     let usage: Usage
     @State private var tab = 0
     @State private var open = false
+    @State private var contentHeight = 0.0
     @AppStorage(Usage.billingCycleStartDayKey) private var billingCycleStartDay = 1
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(spacing: 12) {
             PlanLimitsHeader(usage: usage)
-            Divider()
             Picker("", selection: $tab) {
-                Text("Usage").tag(0)
-                Text("Processes").tag(1)
-                Text("Git").tag(2)
+                Label("Usage", systemImage: "chart.bar").tag(0)
+                Label("Processes", systemImage: "cpu").tag(1)
+                Label("Git", systemImage: "arrow.triangle.branch").tag(2)
             }
             .pickerStyle(.segmented).labelsHidden()
-            if tab == 0 {
-                UsageTab(usage: usage)
-            } else if tab == 1 {
-                ProcessesTab(monitor: usage.processes)
-            } else {
-                GitTab(monitor: usage.git)
+            ScrollView {
+                Group {
+                    if tab == 0 {
+                        UsageTab(usage: usage)
+                    } else if tab == 1 {
+                        ProcessesTab(monitor: usage.processes)
+                    } else {
+                        GitTab(monitor: usage.git)
+                    }
+                }
+                .transition(.opacity)
+                .frame(maxWidth: .infinity, minHeight: 240, alignment: .top)
+                .onGeometryChange(for: Double.self, of: { $0.size.height }) { contentHeight = $0 }
             }
+            .scrollIndicators(.never)
+            .frame(height: min(contentHeight, 340))
+            .animation(.snappy(duration: 0.2), value: tab)
             Divider()
             HStack {
-                Spacer()
-                SettingsLink { Image(systemName: "gearshape") }
-                    .buttonStyle(.borderless)
+                SettingsLink { Label("Settings", systemImage: "gearshape") }
                     .keyboardShortcut(",", modifiers: .command)
                     .simultaneousGesture(TapGesture().onEnded { NSApp.activate() })
+                Spacer()
+                Button { NSApp.terminate(nil) } label: { Label("Quit", systemImage: "power") }
+                    .keyboardShortcut("q", modifiers: .command)
             }
+            .buttonStyle(.borderless).foregroundStyle(.secondary)
         }
-        .padding(12)
-        .frame(width: 380)
+        .padding(14)
+        .frame(width: 400)
         .onChange(of: billingCycleStartDay, initial: true) { usage.billingCycleStartDay = billingCycleStartDay }
         .onChange(of: open && tab == 1, initial: true) { usage.processes.sampling = open && tab == 1 }
         .onChange(of: open && tab == 2, initial: true) { usage.git.scanning = open && tab == 2 }

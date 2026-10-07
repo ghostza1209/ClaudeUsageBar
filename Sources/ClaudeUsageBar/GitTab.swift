@@ -50,52 +50,42 @@ struct GitTab: View {
     let monitor: GitMonitor
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             switch monitor.result {
             case nil:
                 EmptyView()
             case .gitNotFound:
-                note("exclamationmark.triangle", "git not found", hint: "Install the Command Line Tools: xcode-select --install")
+                EmptyNote("exclamationmark.triangle", "git not found", hint: "Install the Command Line Tools: xcode-select --install")
             case .repos(let repos) where repos.isEmpty:
-                note("folder", "no repos yet", hint: nil)
+                EmptyNote("folder", "no repos yet")
             case .repos(let repos):
                 ForEach(repos, id: \.root) { row($0) }
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 260, alignment: .top)
-    }
-
-    private func note(_ icon: String, _ text: String, hint: String?) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: icon).font(.title2)
-            Text(text).font(.caption)
-            if let hint { Text(hint).font(.caption2) }
-        }
-        .foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.vertical, 20)
     }
 
     private func row(_ r: RepoStatus) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            HStack(spacing: 6) {
-                Text(r.name).font(.callout).lineLimit(1)
-                if r.isWorktree {
-                    Text("worktree").font(.caption2).foregroundStyle(.secondary)
-                        .padding(.horizontal, 4).background(.quaternary, in: Capsule())
+        Card {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Image(systemName: "folder").foregroundStyle(.secondary)
+                    Text(r.name).font(.callout.weight(.medium)).lineLimit(1)
+                    if r.isWorktree { Chip("worktree", .secondary) }
+                    Spacer()
+                    if r.dirty > 0 { Chip("● \(r.dirty)", .yellow) }
+                    if let ahead = r.ahead, ahead > 0 { Chip("↑\(ahead)", .green) }
+                    if let behind = r.behind, behind > 0 { Chip("↓\(behind)", .orange) }
                 }
-                Spacer()
-                if r.dirty > 0 { Label("\(r.dirty)", systemImage: "pencil").font(.caption) }
-                if let ahead = r.ahead, ahead > 0 { Text("↑\(ahead)").font(.caption) }
-                if let behind = r.behind, behind > 0 { Text("↓\(behind)").font(.caption) }
-            }
-            if r.timedOut {
-                Text("timed out").font(.caption2).foregroundStyle(.orange)
-            } else {
-                HStack(spacing: 4) {
-                    Text(r.branch ?? "").layoutPriority(1)
-                    Text("· " + (r.subject ?? "no commits yet")).lineLimit(1)
-                    if let committed = r.committedAt { Text("· " + formatUptime(-committed.timeIntervalSinceNow) + " ago").fixedSize() }
+                if r.timedOut {
+                    Text("timed out").font(.caption2).foregroundStyle(.orange)
+                } else {
+                    HStack(spacing: 4) {
+                        Label(r.branch ?? "", systemImage: "arrow.triangle.branch").layoutPriority(1)
+                        Text("· " + (r.subject ?? "no commits yet")).lineLimit(1)
+                        if let committed = r.committedAt { Text("· " + formatUptime(-committed.timeIntervalSinceNow) + " ago").fixedSize() }
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
                 }
-                .font(.caption2).foregroundStyle(.secondary)
             }
         }
     }
