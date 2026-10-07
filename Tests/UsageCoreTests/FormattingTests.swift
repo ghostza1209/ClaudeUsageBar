@@ -38,3 +38,24 @@ func fullCurrencyFormats(amount: Double, expected: String) {
     #expect(compactCurrency(1_234_567.0) == "$1,234.6k")
     #expect(fullCurrency(3_124.5) == "$3,124.50")
 }
+
+@Test(arguments: [
+    (-5.0, "0s"), (42.0, "42s"), (59.9, "59s"), (60.0, "1m"), (3599.0, "59m"),
+    (3600.0, "1h 0m"), (11_579.0, "3h 12m"), (86_400.0, "1d 0h"), (187_800.0, "2d 4h"),
+] as [(Double, String)])
+func uptimeUsesTheTwoLargestUnits(seconds: Double, expected: String) {
+    #expect(formatUptime(seconds) == expected)
+}
+
+@Test(arguments: [
+    (0, "0 MB"), (413_000_000, "394 MB"), (1_072_693_248, "1023 MB"), (1_073_741_824, "1.0 GB"), (1_288_490_189, "1.2 GB"),
+] as [(UInt64, String)])
+func memoryIsMBBelowAGigabyte(bytes: UInt64, expected: String) {
+    #expect(formatMemory(bytes) == expected)
+}
+
+@Test func cpuShowsADashUntilTheSecondSample() {
+    #expect(formatCPU(nil) == "—")
+    #expect(formatCPU(12.34) == "12.3%")
+    #expect(formatCPU(0) == "0.0%")
+}

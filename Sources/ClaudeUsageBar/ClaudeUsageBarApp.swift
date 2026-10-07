@@ -36,6 +36,7 @@ struct ClaudeUsageBarApp: App {
     /// Why the last Install click failed.
     var wrapperError: String?
     var summary: UsageSummary?
+    let processes: ProcessMonitor
     /// Files handled / total during the launch pass; nil once it is done.
     var scan: (done: Int, total: Int)? = (0, 0)
     var hasLogs = false
@@ -95,6 +96,7 @@ struct ClaudeUsageBarApp: App {
             (home, support) = (URL(filePath: sandbox).appending(path: ".claude"), URL(filePath: sandbox).appending(path: "support"))
         }
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        processes = ProcessMonitor(claudeHome: home)
         logs = Logs(claudeHome: home, cacheURL: support.appending(path: "records.json"))
         let projects = home.appending(path: "projects").resolvingSymlinksInPath().path
         projectsPrefix = projects + "/"
@@ -318,6 +320,7 @@ final class FileWatcher {
 struct Popover: View {
     let usage: Usage
     @State private var tab = 0
+    @State private var open = false
     @AppStorage(Usage.billingCycleStartDayKey) private var billingCycleStartDay = 1
 
     var body: some View {
@@ -332,6 +335,8 @@ struct Popover: View {
             .pickerStyle(.segmented).labelsHidden()
             if tab == 0 {
                 UsageTab(usage: usage)
+            } else if tab == 1 {
+                ProcessesTab(monitor: usage.processes)
             } else {
                 Text(["Usage", "Processes", "Git"][tab] + " coming soon.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -348,7 +353,8 @@ struct Popover: View {
         .padding(12)
         .frame(width: 380)
         .onChange(of: billingCycleStartDay, initial: true) { usage.billingCycleStartDay = billingCycleStartDay }
-        .background(KeyWindowObserver { usage.popoverOpen = $0 })
+        .onChange(of: open && tab == 1, initial: true) { usage.processes.sampling = open && tab == 1 }
+        .background(KeyWindowObserver { (usage.popoverOpen, open) = ($0, $0) })
     }
 }
 

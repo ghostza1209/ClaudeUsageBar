@@ -22,3 +22,24 @@ public func compactCurrency(_ amount: Double) -> String {
     let thousands = (amount / 100).rounded() / 10
     return "$" + thousands.formatted(.number.precision(.fractionLength(1)).locale(enUS)) + "k"
 }
+
+/// `42s`, `7m`, `3h 12m`, `2d 4h`: the two largest units.
+public func formatUptime(_ seconds: TimeInterval) -> String {
+    let s = Int(max(seconds, 0))
+    if s < 60 { return "\(s)s" }
+    if s < 3600 { return "\(s / 60)m" }
+    if s < 86_400 { return "\(s / 3600)h \(s % 3600 / 60)m" }
+    return "\(s / 86_400)d \(s % 86_400 / 3600)h"
+}
+
+/// `394 MB`, `1.2 GB` (powers of 1024, as Activity Monitor).
+public func formatMemory(_ bytes: UInt64) -> String {
+    let mb = Double(bytes) / 1_048_576
+    if mb < 1024 { return "\(Int(mb.rounded())) MB" }
+    return (mb / 1024).formatted(.number.precision(.fractionLength(1)).locale(enUS)) + " GB"
+}
+
+/// `12.3%`, or `—` before the second sample.
+public func formatCPU(_ percent: Double?) -> String {
+    percent.map { $0.formatted(.number.precision(.fractionLength(1)).locale(enUS)) + "%" } ?? "—"
+}
