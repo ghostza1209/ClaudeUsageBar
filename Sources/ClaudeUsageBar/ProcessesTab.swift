@@ -55,7 +55,7 @@ struct ProcessesTab: View {
     let monitor: ProcessMonitor
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             if let rows = monitor.rows {
                 if rows.isEmpty { EmptyNote("terminal", "no Claude Code sessions running") }
                 ForEach(rows, id: \.pid) { row($0) }

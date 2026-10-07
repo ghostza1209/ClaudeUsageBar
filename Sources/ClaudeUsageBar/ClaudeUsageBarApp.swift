@@ -10,14 +10,26 @@ struct ClaudeUsageBarApp: App {
         MenuBarExtra {
             Popover(usage: usage)
         } label: {
-            Image(systemName: "sparkle")
-            if let title = usage.title { Text(title) }
+            let gauge = usage.menuBarGauge
+            Image(nsImage: gaugeImage(percent: gauge.percent))
+            Text(gauge.text)
         }
         .menuBarExtraStyle(.window)
-        Settings {
-            SettingsView(usage: usage)
-        }
     }
+}
+
+/// A template (so it follows the menu bar tint) pill: dim track, solid fill for `percent` used.
+private func gaugeImage(percent: Double) -> NSImage {
+    let image = NSImage(size: NSSize(width: 28, height: 6), flipped: false) { rect in
+        NSColor.black.withAlphaComponent(0.3).setFill()
+        NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3).fill()
+        NSColor.black.setFill()
+        let fill = NSRect(x: 0, y: 0, width: rect.width * min(max(percent, 0), 100) / 100, height: rect.height)
+        NSBezierPath(roundedRect: fill, xRadius: 3, yRadius: 3).fill()
+        return true
+    }
+    image.isTemplate = true
+    return image
 }
 
 /// Menu bar title: icon only while the launch pass runs, then refreshed by FSEvents and at midnight, with a trailing ⚠
@@ -27,6 +39,12 @@ struct ClaudeUsageBarApp: App {
     /// Today's $ (or `—`); nil while the launch pass runs.
     private var baseTitle: String?
     var title: String? { titleWithWarning(baseTitle, warning: planLimits.warnsInTitle) }
+    /// The menu bar label: the Weekly window's percent used, or `—` / `⚠` (wrapper missing, capture unreadable) with an empty bar.
+    var menuBarGauge: (percent: Double, text: String) {
+        guard case .ok(_, let weekly?, _) = planLimits else { return (0, planLimits.warnsInTitle ? "⚠" : "—") }
+        let percent = weekly.displayPercent(now: .now)
+        return (percent, "\(Int(percent.rounded()))%")
+    }
     /// Settings shows it next to the Install / Uninstall buttons.
     private(set) var wrapperInstalled = true
     /// Re-read when the capture file changes (and on popover open); assigned only on a change, so an FSEvents batch
@@ -338,21 +356,26 @@ struct Popover: View {
     let usage: Usage
     @State private var tab = 0
     @State private var open = false
+    @State private var showSettings = false
     @State private var contentHeight = 0.0
     @AppStorage(Usage.billingCycleStartDayKey) private var billingCycleStartDay = 1
 
     var body: some View {
-        VStack(spacing: 12) {
-            PlanLimitsHeader(usage: usage)
-            Picker("", selection: $tab) {
-                Label("Usage", systemImage: "chart.bar").tag(0)
-                Label("Processes", systemImage: "cpu").tag(1)
-                Label("Git", systemImage: "arrow.triangle.branch").tag(2)
+        VStack(spacing: 8) {
+            if !showSettings {
+                PlanLimitsHeader(usage: usage)
+                Picker("", selection: $tab) {
+                    Label("Usage", systemImage: "chart.bar").tag(0)
+                    Label("Processes", systemImage: "cpu").tag(1)
+                    Label("Git", systemImage: "arrow.triangle.branch").tag(2)
+                }
+                .pickerStyle(.segmented).labelsHidden().controlSize(.small)
             }
-            .pickerStyle(.segmented).labelsHidden()
             ScrollView {
                 Group {
-                    if tab == 0 {
+                    if showSettings {
+                        SettingsView(usage: usage)
+                    } else if tab == 0 {
                         UsageTab(usage: usage)
                     } else if tab == 1 {
                         ProcessesTab(monitor: usage.processes)
@@ -361,29 +384,33 @@ struct Popover: View {
                     }
                 }
                 .transition(.opacity)
-                .frame(maxWidth: .infinity, minHeight: 240, alignment: .top)
+                .frame(maxWidth: .infinity, minHeight: showSettings ? 0 : 160, alignment: .top)
                 .onGeometryChange(for: Double.self, of: { $0.size.height }) { contentHeight = $0 }
             }
             .scrollIndicators(.never)
-            .frame(height: min(contentHeight, 340))
+            .frame(height: min(contentHeight, showSettings ? 380 : 360))
             .animation(.snappy(duration: 0.2), value: tab)
-            Divider()
+            .animation(.snappy(duration: 0.2), value: showSettings)
             HStack {
-                SettingsLink { Label("Settings", systemImage: "gearshape") }
-                    .keyboardShortcut(",", modifiers: .command)
-                    .simultaneousGesture(TapGesture().onEnded { NSApp.activate() })
+                Button { showSettings.toggle() } label: {
+                    Label(showSettings ? "Back" : "Settings", systemImage: showSettings ? "chevron.left" : "gearshape")
+                }
+                .keyboardShortcut(",", modifiers: .command)
                 Spacer()
                 Button { NSApp.terminate(nil) } label: { Label("Quit", systemImage: "power") }
                     .keyboardShortcut("q", modifiers: .command)
             }
-            .buttonStyle(.borderless).foregroundStyle(.secondary)
+            .buttonStyle(.borderless).foregroundStyle(.secondary).font(.callout)
         }
-        .padding(14)
-        .frame(width: 400)
+        .padding(10)
+        .frame(width: 360)
         .onChange(of: billingCycleStartDay, initial: true) { usage.billingCycleStartDay = billingCycleStartDay }
-        .onChange(of: open && tab == 1, initial: true) { usage.processes.sampling = open && tab == 1 }
-        .onChange(of: open && tab == 2, initial: true) { usage.git.scanning = open && tab == 2 }
-        .background(KeyWindowObserver { (usage.popoverOpen, open) = ($0, $0) })
+        .onChange(of: open && tab == 1 && !showSettings, initial: true) { usage.processes.sampling = open && tab == 1 && !showSettings }
+        .onChange(of: open && tab == 2 && !showSettings, initial: true) { usage.git.scanning = open && tab == 2 && !showSettings }
+        .background(KeyWindowObserver {
+            (usage.popoverOpen, open) = ($0, $0)
+            if !$0 { showSettings = false }
+        })
     }
 }
 

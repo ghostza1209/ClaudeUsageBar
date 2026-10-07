@@ -11,7 +11,7 @@ struct UsageTab: View {
     let usage: Usage
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             if let scan = usage.scan {
                 Label(scan.total > 0 ? "Scanning \(scan.done)/\(scan.total) files" : "Scanning files", systemImage: "arrow.triangle.2.circlepath")
                     .font(.caption).foregroundStyle(.secondary)
@@ -32,7 +32,7 @@ struct UsageTab: View {
         let parts = [("Input", t.input, Color.blue), ("Output", t.output, .green), ("Cache read", t.cacheRead, .purple), ("Cache write", t.cacheWrite, .orange)]
         return Card("Billing cycle · since " + s.cycleStart.formatted(.dateTime.month(.abbreviated).day().locale(enUS))) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(fullCurrency(s.cycleCost)).font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
+                Text(fullCurrency(s.cycleCost)).font(.system(size: 28, weight: .bold, design: .rounded).monospacedDigit())
                     .contentTransition(.numericText())
                 Text("API list estimate").font(.caption).foregroundStyle(.secondary)
             }
@@ -85,7 +85,7 @@ struct UsageTab: View {
                 LineMark(x: .value("min", $0.offset), y: .value("tokens/min", $0.element))
                     .interpolationMethod(.catmullRom).foregroundStyle(Color.accentColor)
             }
-            .chartXAxis(.hidden).chartYAxis(.hidden).frame(height: 44)
+            .chartXAxis(.hidden).chartYAxis(.hidden).frame(height: 30)
         }
     }
 
@@ -109,7 +109,7 @@ struct UsageTab: View {
                     AxisValueLabel(value.as(Double.self).map { compactCurrency($0).replacing(".00", with: "") } ?? "")
                 }
             }
-            .frame(height: 90)
+            .frame(height: 60)
         }
     }
 
@@ -117,7 +117,7 @@ struct UsageTab: View {
         Card("Models") {
             ForEach(s.models, id: \.model) { m in
                 let share = s.cycleCost > 0 ? min(m.cost / s.cycleCost, 1) : 0
-                VStack(spacing: 4) {
+                VStack(spacing: 3) {
                     HStack(spacing: 6) {
                         let name = m.model.hasPrefix("claude-") ? String(m.model.dropFirst(7)) : m.model
                         Text(m.unpriced ? name + " (unpriced)" : name).font(.callout).lineLimit(1).truncationMode(.middle)
@@ -125,7 +125,7 @@ struct UsageTab: View {
                         Spacer(minLength: 8)
                         Text(fullCurrency(m.cost)).font(.callout.monospacedDigit())
                     }
-                    Capsule().fill(.quaternary).frame(height: 4)
+                    Capsule().fill(.quaternary).frame(height: 3)
                         .overlay(alignment: .leading) {
                             GeometryReader { Capsule().fill(Color.accentColor).frame(width: $0.size.width * share) }
                         }

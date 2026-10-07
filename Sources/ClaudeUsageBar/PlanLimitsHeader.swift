@@ -16,8 +16,8 @@ struct PlanLimitsHeader: View {
         case .unreadable(let reason):
             problem("bolt.slash", .red, "Plan limits unreadable: \(reason)")
         case .ok(let fiveHour, let sevenDay, let capturedAt):
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
                     ring("5-hour", fiveHour, weekly: false)
                     ring("Weekly", sevenDay, weekly: true)
                 }
@@ -30,7 +30,7 @@ struct PlanLimitsHeader: View {
 
     private func problem(_ icon: String, _ color: Color, _ message: String, detail: String? = nil, install: Bool = false) -> some View {
         Card {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Image(systemName: icon).font(.title2).foregroundStyle(color)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(message).font(.callout)
@@ -54,21 +54,21 @@ struct PlanLimitsHeader: View {
             }
         let reset = window.map { resetText($0.resetsAt, now: usage.now, weekly: weekly, calendar: .current) } ?? "no data"
         return Card {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 ZStack {
-                    Circle().stroke(.quaternary, lineWidth: 7)
+                    Circle().stroke(.quaternary, lineWidth: 5)
                     Circle().trim(from: 0, to: percent / 100)
                         .stroke(
                             AngularGradient(colors: [color.opacity(0.5), color], center: .center, startAngle: .zero, endAngle: .degrees(max(1, 360 * percent / 100))),
-                            style: .init(lineWidth: 7, lineCap: .round)
+                            style: .init(lineWidth: 5, lineCap: .round)
                         )
                         .rotationEffect(.degrees(-90))
                         .opacity(percent > 0 ? 1 : 0)
                     Text(window == nil ? "—" : "\(Int(percent.rounded()))%")
-                        .font(.system(size: 16, weight: .bold, design: .rounded).monospacedDigit())
+                        .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
                         .contentTransition(.numericText())
                 }
-                .frame(width: 60, height: 60)
+                .frame(width: 42, height: 42)
                 .animation(.snappy, value: percent)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name).font(.callout.weight(.semibold))

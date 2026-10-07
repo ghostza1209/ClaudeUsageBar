@@ -10,12 +10,12 @@ struct Card<Content: View>: View {
     }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 12)
-        VStack(alignment: .leading, spacing: 10) {
+        let shape = RoundedRectangle(cornerRadius: 10)
+        VStack(alignment: .leading, spacing: 6) {
             if let title { SectionTitle(title) }
             content
         }
-        .padding(12)
+        .padding(9)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.5), in: shape)
         .overlay { shape.strokeBorder(.separator, lineWidth: 0.5) }
@@ -56,6 +56,6 @@ struct EmptyNote: View {
             Text(text).font(.callout)
             if let hint { Text(hint).font(.caption) }
         }
-        .foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.vertical, 40)
+        .foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.vertical, 20)
     }
 }

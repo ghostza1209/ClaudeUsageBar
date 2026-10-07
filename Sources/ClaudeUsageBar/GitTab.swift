@@ -50,7 +50,7 @@ struct GitTab: View {
     let monitor: GitMonitor
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             switch monitor.result {
             case nil:
                 EmptyView()
