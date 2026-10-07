@@ -1,6 +1,6 @@
 #!/bin/sh
 # Builds release, assembles an ad-hoc signed ClaudeUsageBar.app under .build/ and opens it.
-# This is the only supported way to run the app (see docs/adr/0001).
+# NO_OPEN=1 stops after signing (used by package.sh). This is the only supported way to run the app (see docs/adr/0001).
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -26,5 +26,6 @@ cat > "$app/Contents/Info.plist" <<'EOF'
 </plist>
 EOF
 codesign --force -s - "$app"
+[ -n "${NO_OPEN:-}" ] && exit 0
 pkill -x ClaudeUsageBar || true
 open "$app"
