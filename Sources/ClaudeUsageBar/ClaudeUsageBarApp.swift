@@ -21,13 +21,18 @@ struct ClaudeUsageBarApp: App {
 }
 
 /// Menu bar title: icon only while the launch pass runs, then refreshed by FSEvents and at midnight, with a trailing ⚠
-/// while the statusline wrapper is not installed. The Usage tab's `summary` is recomputed (off the main thread) only
-/// while the popover is open.
+/// while the statusline wrapper is not installed or the capture file is unreadable. The Usage tab's `summary` is
+/// recomputed (off the main thread) only while the popover is open.
 @MainActor @Observable final class Usage {
     /// Today's $ (or `—`); nil while the launch pass runs.
     private var baseTitle: String?
-    var title: String? { titleWithWarning(baseTitle, warning: !wrapperInstalled) }
-    var wrapperInstalled = true
+    var title: String? { titleWithWarning(baseTitle, warning: planLimits.warnsInTitle) }
+    @ObservationIgnored private var wrapperInstalled = true
+    /// Re-read when the capture file changes (and on popover open); assigned only on a change, so an FSEvents batch
+    /// that did not touch the capture file (this app's own cache write) re-renders nothing.
+    var planLimits = PlanLimits.noData
+    /// The clock the Plan-limits header renders against; ticks every minute while the popover is open.
+    var now = Date.now
     /// Why the last Install click failed.
     var wrapperError: String?
     var summary: UsageSummary?
@@ -36,9 +41,9 @@ struct ClaudeUsageBarApp: App {
     var hasLogs = false
     /// When the live price table was fetched; nil while it is the bundled snapshot. Popover age line, Settings (ticket 24).
     var pricesFetchedAt: Date?
-    /// Ticket 20 hook: something changed in the app's Application Support dir (the Plan-limits capture file,
-    /// or this app's own cache write).
-    var appSupportChanged: () -> Void = {}
+    /// `@AppStorage` keys (percent, Int) for the ring colours; ticket 24 edits them, ticket 21 reads them for notifications.
+    static let warningThresholdKey = "warningThreshold"  // default 80
+    static let criticalThresholdKey = "criticalThreshold"  // default 95
 
     /// Key shared with the Settings UI (ticket 24).
     static let billingCycleStartDayKey = "billingCycleStartDay"
@@ -46,7 +51,20 @@ struct ClaudeUsageBarApp: App {
         didSet { if billingCycleStartDay != oldValue && popoverOpen { recompute() } }
     }
     @ObservationIgnored var popoverOpen = false {
-        didSet { if popoverOpen && !oldValue { recompute(); refreshWrapper() } }
+        didSet {
+            guard popoverOpen != oldValue else { return }
+            minuteTimer?.invalidate()
+            minuteTimer = nil
+            guard popoverOpen else { return }
+            recompute()
+            refreshWrapper()
+            now = .now
+            let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.now = .now }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            minuteTimer = timer
+        }
     }
     @ObservationIgnored private var store = RecordStore()
     @ObservationIgnored private var generation = 0
@@ -58,8 +76,10 @@ struct ClaudeUsageBarApp: App {
     @ObservationIgnored private var watcher: FileWatcher?
     @ObservationIgnored private var midnight: Timer?
     @ObservationIgnored private var priceTimer: Timer?
+    @ObservationIgnored private var minuteTimer: Timer?
     private let priceStore: PriceStore
     private let wrapper: StatuslineWrapper
+    private let supportDir: URL
 
     init() {
         var home = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".claude")
@@ -77,7 +97,9 @@ struct ClaudeUsageBarApp: App {
         }
         supportPrefix = support.resolvingSymlinksInPath().path + "/"
         wrapper = StatuslineWrapper(claudeHome: home, supportDir: support)
+        supportDir = support
         wrapperInstalled = wrapper.isInstalled()
+        planLimits = readPlanLimits(supportDir: support, wrapperInstalled: wrapperInstalled)
 
         Task(priority: .background) {
             (prices, pricesFetchedAt) = await (priceStore.table, priceStore.fetchedAt)
@@ -100,7 +122,7 @@ struct ClaudeUsageBarApp: App {
     }
 
     private func filesChanged(_ events: [FileWatcher.Event]) {
-        if events.contains(where: { $0.path.hasPrefix(supportPrefix) }) { appSupportChanged() }
+        if events.contains(where: { $0.path.hasPrefix(supportPrefix) }) { refreshPlanLimits() }
         let logEvents = events.filter { $0.path.hasPrefix(projectsPrefix) }
         guard !logEvents.isEmpty else { return }
         let rescan = logEvents.contains { $0.flags & UInt32(kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagRootChanged) != 0 }
@@ -165,8 +187,16 @@ struct ClaudeUsageBarApp: App {
         return result
     }
 
-    /// Detection runs at launch and on every popover open.
-    private func refreshWrapper() { wrapperInstalled = wrapper.isInstalled() }
+    /// Detection runs at launch and on every popover open; the Plan-limits state depends on it.
+    private func refreshWrapper() {
+        wrapperInstalled = wrapper.isInstalled()
+        refreshPlanLimits()
+    }
+
+    private func refreshPlanLimits() {
+        let latest = readPlanLimits(supportDir: supportDir, wrapperInstalled: wrapperInstalled)
+        if latest != planLimits { planLimits = latest }
+    }
 
     /// The Install button: chains the current statusline and points Claude Code at the wrapper.
     func installWrapper() {
@@ -262,25 +292,8 @@ struct Popover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            GroupBox {
-                if usage.wrapperInstalled {
-                    Text("No Plan limits yet.").font(.caption).foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("Wrapper not installed").font(.caption).foregroundStyle(.secondary)
-                            Spacer()
-                            Button("Install…") { usage.installWrapper() }.controlSize(.small)
-                        }
-                        if let error = usage.wrapperError {
-                            Text(error).font(.caption).foregroundStyle(.red)
-                        }
-                    }
-                }
-            } label: {
-                Text("Plan limits").font(.caption.bold())
-            }
+            PlanLimitsHeader(usage: usage)
+            Divider()
             Picker("", selection: $tab) {
                 Text("Usage").tag(0)
                 Text("Processes").tag(1)

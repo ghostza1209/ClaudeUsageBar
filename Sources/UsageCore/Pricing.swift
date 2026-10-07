@@ -72,8 +72,8 @@ public func menuBarTitle(_ store: RecordStore, prices: PriceTable, now: Date, ca
     store.records.isEmpty ? "—" : compactCurrency(todayCost(store, prices: prices, now: now, calendar: calendar))
 }
 
-/// The title as shown: `base` (nil while the first scan runs) with a trailing ⚠ when `warning` (the statusline wrapper
-/// is not installed; ticket 20 adds unreadable Plan limits). The ⚠ shows during the scan too, alone next to the icon.
+/// The title as shown: `base` (nil while the first scan runs) with a trailing ⚠ when `warning` (`PlanLimits.warnsInTitle`:
+/// wrapper not installed or capture unreadable). The ⚠ shows during the scan too, alone next to the icon.
 public func titleWithWarning(_ base: String?, warning: Bool) -> String? {
     guard warning else { return base }
     return base.map { $0 + " ⚠" } ?? "⚠"
