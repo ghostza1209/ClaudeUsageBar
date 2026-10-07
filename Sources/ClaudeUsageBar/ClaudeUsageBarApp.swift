@@ -37,6 +37,7 @@ struct ClaudeUsageBarApp: App {
     var wrapperError: String?
     var summary: UsageSummary?
     let processes: ProcessMonitor
+    let git: GitMonitor
     /// Files handled / total during the launch pass; nil once it is done.
     var scan: (done: Int, total: Int)? = (0, 0)
     var hasLogs = false
@@ -97,6 +98,7 @@ struct ClaudeUsageBarApp: App {
         }
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         processes = ProcessMonitor(claudeHome: home)
+        git = GitMonitor(claudeHome: home)
         logs = Logs(claudeHome: home, cacheURL: support.appending(path: "records.json"))
         let projects = home.appending(path: "projects").resolvingSymlinksInPath().path
         projectsPrefix = projects + "/"
@@ -123,6 +125,7 @@ struct ClaudeUsageBarApp: App {
             }
             applied(await logs.update(dirs: nil, prices: prices, onProgress: progress))
         }
+        git.records = { [unowned self] in self.store }
         priceTick()
         watcher = FileWatcher(paths: [projects, support.path]) { [weak self] events in
             Task { @MainActor in self?.filesChanged(events) }
@@ -338,9 +341,7 @@ struct Popover: View {
             } else if tab == 1 {
                 ProcessesTab(monitor: usage.processes)
             } else {
-                Text(["Usage", "Processes", "Git"][tab] + " coming soon.")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 260, alignment: .top)
+                GitTab(monitor: usage.git)
             }
             Divider()
             HStack {
@@ -354,6 +355,7 @@ struct Popover: View {
         .frame(width: 380)
         .onChange(of: billingCycleStartDay, initial: true) { usage.billingCycleStartDay = billingCycleStartDay }
         .onChange(of: open && tab == 1, initial: true) { usage.processes.sampling = open && tab == 1 }
+        .onChange(of: open && tab == 2, initial: true) { usage.git.scanning = open && tab == 2 }
         .background(KeyWindowObserver { (usage.popoverOpen, open) = ($0, $0) })
     }
 }
