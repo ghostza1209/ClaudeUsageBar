@@ -47,7 +47,8 @@ public struct PriceTable: Sendable {
 
 /// Today's (local calendar) API list estimate.
 public func todayCost(_ store: RecordStore, prices: PriceTable, now: Date, calendar: Calendar) -> Double {
-    store.records.filter { calendar.isDate($0.timestamp, inSameDayAs: now) }.reduce(0) { $0 + prices.cost(of: $1) }
+    let today = calendar.dateInterval(of: .day, for: now)!
+    return store.records.filter { today.start <= $0.timestamp && $0.timestamp < today.end }.reduce(0) { $0 + prices.cost(of: $1) }
 }
 
 /// Menu bar title text: `—` with no records, else today's compact $.

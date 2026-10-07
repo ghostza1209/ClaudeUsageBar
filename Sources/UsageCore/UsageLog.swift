@@ -1,6 +1,6 @@
 import Foundation
 
-public struct Tokens: Sendable, Equatable {
+public struct Tokens: Sendable, Equatable, Codable {
     public var input = 0, output = 0, cacheRead = 0, cacheWrite5m = 0, cacheWrite1h = 0
     public var total: Int { input + output + cacheRead + cacheWrite5m + cacheWrite1h }
 
@@ -9,13 +9,13 @@ public struct Tokens: Sendable, Equatable {
     }
 }
 
-public struct AdvisorIteration: Sendable, Equatable {
+public struct AdvisorIteration: Sendable, Equatable, Codable {
     public let model: String
     public let tokens: Tokens
 }
 
 /// One API response from an `assistant` log line.
-public struct UsageRecord: Sendable, Equatable {
+public struct UsageRecord: Sendable, Equatable, Codable {
     public let messageId: String
     public let requestId: String?
     public let timestamp: Date
@@ -43,22 +43,6 @@ public struct RecordStore: Sendable {
         if let kept = byKey[key], kept.tokens.total >= record.tokens.total { return }
         byKey[key] = record
     }
-}
-
-/// Every `.jsonl` under `<claudeHome>/projects` (sub-agent files included), newest mtime first.
-public func scanUsageLogs(claudeHome: URL) -> RecordStore {
-    let keys: [URLResourceKey] = [.contentModificationDateKey]
-    let files = (FileManager.default.enumerator(at: claudeHome.appending(path: "projects"), includingPropertiesForKeys: keys)?
-        .compactMap { $0 as? URL } ?? [])
-        .filter { $0.pathExtension == "jsonl" }
-        .map { ($0, (try? $0.resourceValues(forKeys: Set(keys)).contentModificationDate) ?? .distantPast) }
-        .sorted { $0.1 > $1.1 }
-    var store = RecordStore()
-    for (url, _) in files {
-        guard let data = try? Data(contentsOf: url, options: .alwaysMapped) else { continue }
-        for record in parseUsageLines(data) { store.insert(record) }
-    }
-    return store
 }
 
 private let usageNeedle = Array(#""usage""#.utf8)

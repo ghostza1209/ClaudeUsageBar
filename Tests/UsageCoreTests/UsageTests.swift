@@ -3,7 +3,7 @@ import Testing
 import UsageCore
 
 // $/token: m = $1 in, $10 out, $0.10 cache read, $2 5m write, $4 1h write per MTok.
-private let prices = try! PriceTable(json: Data("""
+let prices = try! PriceTable(json: Data("""
 {
  "m": {"input_cost_per_token": 1e-6, "output_cost_per_token": 1e-5, "cache_read_input_token_cost": 1e-7,
        "cache_creation_input_token_cost": 2e-6, "cache_creation_input_token_cost_above_1hr": 4e-6},
@@ -14,14 +14,14 @@ private let prices = try! PriceTable(json: Data("""
 }
 """.utf8))
 
-private let bangkok: Calendar = {
+let bangkok: Calendar = {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(identifier: "Asia/Bangkok")!
     return calendar
 }()
-private let now = Date(timeIntervalSince1970: 1_791_349_200)  // 2026-10-07T05:00:00Z = 12:00 in Bangkok
+let now = Date(timeIntervalSince1970: 1_791_349_200)  // 2026-10-07T05:00:00Z = 12:00 in Bangkok
 
-private func line(
+func line(
     id: String = "msg_1", req: String = "req_1", at: String = "2026-10-07T05:00:00.000Z", model: String = "m",
     usage: String = #""input_tokens":0,"output_tokens":0"#
 ) -> String {
@@ -29,15 +29,21 @@ private func line(
         + #""message":{"id":"\#(id)","model":"\#(model)","content":[],"usage":{\#(usage)}}}"#
 }
 
-private func tree(_ files: [String: [String]]) throws -> URL {
+func tree(_ files: [String: [String]]) throws -> URL {
     let home = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     for (path, lines) in files {
         let url = home.appending(path: "projects/" + path)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data(lines.joined(separator: "\n").utf8).write(to: url)
+        try Data(lines.map { $0 + "\n" }.joined().utf8).write(to: url)
     }
     try FileManager.default.createDirectory(at: home.appending(path: "projects"), withIntermediateDirectories: true)
     return home
+}
+
+func scan(_ home: URL) -> RecordStore {
+    var cache = UsageCache()
+    cache.update(claudeHome: home, now: now, calendar: bangkok)
+    return cache.store
 }
 
 private func cost(_ usage: String, model: String = "m") -> Double {
@@ -83,7 +89,7 @@ private func cost(_ usage: String, model: String = "m") -> Double {
             line(req: "req_2", usage: #""input_tokens":0,"output_tokens":1000"#), // same message id, new request
         ],
     ])
-    let store = scanUsageLogs(claudeHome: home)
+    let store = scan(home)
     #expect(store.records.count == 2)
     // $0.10 input + $0.0322 output + $0.01 for req_2
     #expect(abs(todayCost(store, prices: prices, now: now, calendar: bangkok) - 0.1422) < 1e-9)
@@ -117,12 +123,12 @@ private func cost(_ usage: String, model: String = "m") -> Double {
         line(id: "c", at: "2026-10-07T16:59:00.000Z", usage: #""input_tokens":4000000"#), // 23:59 Oct 7 local
         line(id: "d", at: "2026-10-07T17:00:00.000Z", usage: #""input_tokens":8000000"#), // 00:00 Oct 8 local
     ]])
-    #expect(abs(todayCost(scanUsageLogs(claudeHome: home), prices: prices, now: now, calendar: bangkok) - 6.0) < 1e-9)
+    #expect(abs(todayCost(scan(home), prices: prices, now: now, calendar: bangkok) - 6.0) < 1e-9)
 }
 
 @Test func titleStates() throws {
     func title(_ files: [String: [String]]) throws -> String {
-        menuBarTitle(scanUsageLogs(claudeHome: try tree(files)), prices: prices, now: now, calendar: bangkok)
+        menuBarTitle(scan(try tree(files)), prices: prices, now: now, calendar: bangkok)
     }
     #expect(try title([:]) == "—")
     #expect(try title(["-w/plugin/skill-injections.jsonl": [#"{"skill":"x"}"#]]) == "—")
