@@ -46,3 +46,14 @@ public func priceAgeNote(fetchedAt: Date?, now: Date) -> String? {
     guard let fetchedAt, now.timeIntervalSince(fetchedAt) > 7 * 86400 else { return nil }
     return "prices updated \(Int(now.timeIntervalSince(fetchedAt) / 86400)) days ago"
 }
+
+/// Settings line, always shown: `bundled snapshot`, `just now`, `5 minutes ago`, `3 hours ago`, `2 days ago`.
+public func priceAgeText(fetchedAt: Date?, now: Date) -> String {
+    guard let fetchedAt else { return "bundled snapshot" }
+    let seconds = Int(now.timeIntervalSince(fetchedAt))
+    func ago(_ n: Int, _ unit: String) -> String { "\(n) \(unit)\(n == 1 ? "" : "s") ago" }
+    if seconds < 60 { return "just now" }
+    if seconds < 3600 { return ago(seconds / 60, "minute") }
+    if seconds < 86400 { return ago(seconds / 3600, "hour") }
+    return ago(seconds / 86400, "day")
+}

@@ -92,3 +92,15 @@ private func cost(_ table: PriceTable, _ model: String) -> Double {
     #expect(note(daysAgo: 12.3) == "prices updated 12 days ago")
     #expect(priceAgeNote(fetchedAt: nil, now: now) == nil)
 }
+
+@Test func settingsAgeTextAlwaysShowsAnAge() {
+    func text(secondsAgo: Double) -> String { priceAgeText(fetchedAt: now.addingTimeInterval(-secondsAgo), now: now) }
+    #expect(priceAgeText(fetchedAt: nil, now: now) == "bundled snapshot")
+    #expect(text(secondsAgo: 0) == "just now")
+    #expect(text(secondsAgo: 59) == "just now")
+    #expect(text(secondsAgo: 60) == "1 minute ago")
+    #expect(text(secondsAgo: 5 * 60 + 30) == "5 minutes ago")
+    #expect(text(secondsAgo: 3 * 3600) == "3 hours ago")
+    #expect(text(secondsAgo: 86400) == "1 day ago")
+    #expect(text(secondsAgo: 12.3 * 86400) == "12 days ago")
+}

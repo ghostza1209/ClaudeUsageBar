@@ -15,7 +15,7 @@ struct ClaudeUsageBarApp: App {
         }
         .menuBarExtraStyle(.window)
         Settings {
-            Text("Settings").frame(width: 360, height: 200)
+            SettingsView(usage: usage)
         }
     }
 }
@@ -27,7 +27,8 @@ struct ClaudeUsageBarApp: App {
     /// Today's $ (or `—`); nil while the launch pass runs.
     private var baseTitle: String?
     var title: String? { titleWithWarning(baseTitle, warning: planLimits.warnsInTitle) }
-    @ObservationIgnored private var wrapperInstalled = true
+    /// Settings shows it next to the Install / Uninstall buttons.
+    private(set) var wrapperInstalled = true
     /// Re-read when the capture file changes (and on popover open); assigned only on a change, so an FSEvents batch
     /// that did not touch the capture file (this app's own cache write) re-renders nothing.
     var planLimits = PlanLimits.noData
@@ -81,7 +82,8 @@ struct ClaudeUsageBarApp: App {
     @ObservationIgnored private var midnight: Timer?
     @ObservationIgnored private var priceTimer: Timer?
     @ObservationIgnored private var minuteTimer: Timer?
-    @ObservationIgnored private let notifier = NotificationPresenter()
+    /// Settings requests authorization through it when the notifications toggle is switched on.
+    @ObservationIgnored let notifier = NotificationPresenter()
     /// What was already announced; kept in a file in the support dir so a relaunch does not announce a window twice.
     @ObservationIgnored private var notificationState = NotificationState()
     private let notificationStateURL: URL
@@ -108,8 +110,9 @@ struct ClaudeUsageBarApp: App {
         supportPrefix = support.resolvingSymlinksInPath().path + "/"
         wrapper = StatuslineWrapper(claudeHome: home, supportDir: support)
         supportDir = support
-        wrapperInstalled = wrapper.isInstalled()
-        planLimits = readPlanLimits(supportDir: support, wrapperInstalled: wrapperInstalled)
+        let installed = wrapper.isInstalled()
+        wrapperInstalled = installed
+        planLimits = readPlanLimits(supportDir: support, wrapperInstalled: installed)
         notificationStateURL = support.appending(path: "notification-state.json")
         notificationState = (try? JSONDecoder().decode(NotificationState.self, from: Data(contentsOf: notificationStateURL))) ?? .init()
         // A capture already on disk at launch is evaluated once permission is settled; the persisted state stops repeats.
@@ -206,7 +209,7 @@ struct ClaudeUsageBarApp: App {
     }
 
     /// Detection runs at launch and on every popover open; the Plan-limits state depends on it.
-    private func refreshWrapper() {
+    func refreshWrapper() {
         wrapperInstalled = wrapper.isInstalled()
         refreshPlanLimits()
     }
@@ -237,6 +240,17 @@ struct ClaudeUsageBarApp: App {
     func installWrapper() {
         do {
             try wrapper.install()
+            wrapperError = nil
+        } catch {
+            wrapperError = error.localizedDescription
+        }
+        refreshWrapper()
+    }
+
+    /// The Uninstall button: restores the previous statusline only while ours, then deletes the wrapper files.
+    func uninstallWrapper() {
+        do {
+            try wrapper.uninstall()
             wrapperError = nil
         } catch {
             wrapperError = error.localizedDescription
@@ -348,6 +362,7 @@ struct Popover: View {
                 Spacer()
                 SettingsLink { Image(systemName: "gearshape") }
                     .buttonStyle(.borderless)
+                    .keyboardShortcut(",", modifiers: .command)
                     .simultaneousGesture(TapGesture().onEnded { NSApp.activate() })
             }
         }
