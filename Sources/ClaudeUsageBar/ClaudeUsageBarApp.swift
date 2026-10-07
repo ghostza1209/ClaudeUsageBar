@@ -6,17 +6,24 @@ import UsageCore
 struct ClaudeUsageBarApp: App {
     @State private var usage = Usage()
     @AppStorage(Usage.gaugeColorKey) private var gaugeColor = GaugeColor.claude
+    @AppStorage(Usage.gaugeWindowKey) private var gaugeWindow = GaugeWindow.weekly
 
     var body: some Scene {
         MenuBarExtra {
             Popover(usage: usage)
         } label: {
-            let gauge = usage.menuBarGauge
+            let gauge = usage.menuBarGauge(gaugeWindow)
             Image(nsImage: gaugeImage(percent: gauge.percent, color: gaugeColor.nsColor))
             Text(gauge.text)
         }
         .menuBarExtraStyle(.window)
     }
+}
+
+/// Which Plan-limits window the menu bar gauge shows.
+enum GaugeWindow: String, CaseIterable {
+    case fiveHour, weekly
+    var title: String { self == .fiveHour ? "5-hour" : "Weekly" }
 }
 
 /// Menu bar gauge colours. `claude` is Claude Code's clay orange; `auto` follows the menu bar tint.
@@ -59,10 +66,12 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     /// Today's $ (or `—`); nil while the launch pass runs.
     private var baseTitle: String?
     var title: String? { titleWithWarning(baseTitle, warning: planLimits.warnsInTitle) }
-    /// The menu bar label: the Weekly window's percent used, or `—` / `⚠` (wrapper missing, capture unreadable) with an empty bar.
-    var menuBarGauge: (percent: Double, text: String) {
-        guard case .ok(_, let weekly?, _) = planLimits else { return (0, planLimits.warnsInTitle ? "⚠" : "—") }
-        let percent = weekly.displayPercent(now: .now)
+    /// The menu bar label: the chosen window's percent used, or `—` / `⚠` (wrapper missing, capture unreadable) with an empty bar.
+    func menuBarGauge(_ which: GaugeWindow) -> (percent: Double, text: String) {
+        guard case .ok(let fiveHour, let weekly, _) = planLimits, let window = which == .weekly ? weekly : fiveHour else {
+            return (0, planLimits.warnsInTitle ? "⚠" : "—")
+        }
+        let percent = window.displayPercent(now: .now)
         return (percent, "\(Int(percent.rounded()))%")
     }
     /// Settings shows it next to the Install / Uninstall buttons.
@@ -87,6 +96,8 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     static let criticalThresholdKey = "criticalThreshold"  // default 95
     /// `@AppStorage` key (Bool, default true) for Plan-limit notifications; ticket 24 edits it and requests permission on enable.
     static let notificationsEnabledKey = "notificationsEnabled"
+    /// `@AppStorage` key (`GaugeWindow` raw value, default `weekly`) for the window the menu bar gauge shows.
+    static let gaugeWindowKey = "gaugeWindow"
     /// `@AppStorage` key (`GaugeColor` raw value, default `claude`) for the menu bar gauge.
     static let gaugeColorKey = "gaugeColor"
 
@@ -410,7 +421,7 @@ struct Popover: View {
                 .onGeometryChange(for: Double.self, of: { $0.size.height }) { contentHeight = $0 }
             }
             .scrollIndicators(.never)
-            .frame(height: min(contentHeight, showSettings ? 410 : 360))
+            .frame(height: min(contentHeight, showSettings ? 440 : 360))
             .animation(.snappy(duration: 0.2), value: tab)
             .animation(.snappy(duration: 0.2), value: showSettings)
             HStack {

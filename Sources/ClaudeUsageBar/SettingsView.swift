@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage(Usage.warningThresholdKey) private var warning = 80
     @AppStorage(Usage.criticalThresholdKey) private var critical = 95
     @AppStorage(Usage.gaugeColorKey) private var gaugeColor = GaugeColor.claude
+    @AppStorage(Usage.gaugeWindowKey) private var gaugeWindow = GaugeWindow.weekly
     @State private var loginStatus = SMAppService.mainApp.status
     @State private var loginError: String?
     @State private var updatingPrices = false
@@ -29,6 +30,12 @@ struct SettingsView: View {
                 if let loginError { note(loginError, .red) }
                 stepper("Billing-cycle start day", "\(billingCycleStartDay)", $billingCycleStartDay, 1...31, step: 1)
                 note("Months shorter than this use their last day.")
+                LabeledContent("Menu bar shows") {
+                    Picker("", selection: $gaugeWindow) {
+                        ForEach(GaugeWindow.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                }
                 LabeledContent("Menu bar colour") {
                     HStack(spacing: 8) {
                         ForEach(GaugeColor.allCases, id: \.self) { choice in
