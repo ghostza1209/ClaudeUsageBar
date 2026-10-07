@@ -33,6 +33,7 @@ func fullCurrencyFormats(amount: Double, expected: String) {
 
 @Test func compactCurrencyIgnoresNonUSLocale() throws {
     UserDefaults.standard.setVolatileDomain(["AppleLocale": "de_DE"], forName: UserDefaults.argumentDomain)
+    defer { UserDefaults.standard.removeVolatileDomain(forName: UserDefaults.argumentDomain) }
     try #require(Locale.current.identifier == "de_DE")
     #expect(compactCurrency(18.42) == "$18.42")
     #expect(compactCurrency(1_234_567.0) == "$1,234.6k")

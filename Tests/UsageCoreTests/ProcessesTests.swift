@@ -21,6 +21,13 @@ private func spawn(_ path: String, _ args: [String] = [], in dir: URL? = nil) th
     process.currentDirectoryURL = dir
     process.standardOutput = FileHandle.nullDevice
     try process.run()
+    // Until exec lands, libproc still reports the parent's path; wait so every test lists the real binary.
+    let name = URL(filePath: path).lastPathComponent
+    var buffer = [CChar](repeating: 0, count: 4096)
+    for _ in 0..<200 {
+        if proc_pidpath(process.processIdentifier, &buffer, UInt32(buffer.count)) > 0, String(cString: buffer).hasSuffix("/" + name) { break }
+        Thread.sleep(forTimeInterval: 0.01)
+    }
     return process
 }
 
