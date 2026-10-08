@@ -2,12 +2,14 @@
 
 A macOS menu bar app for Claude Code: Plan limits (5-hour and Weekly) as a mini gauge in the menu bar, and a popover with Usage (API list estimate in $), running Processes and Git status of the repos Claude Code worked in.
 
-Requires macOS 27 or later. Everything runs locally; the only network call is the price table fetch (every 24 h) from LiteLLM's public GitHub file.
+Version 1.0.0. Requires macOS 27 or later; the zip is a universal build (Apple silicon and Intel). Everything runs locally; the only network call is the price table fetch (every 24 h) from LiteLLM's public GitHub file.
 
 ## Install (from the zip)
 
+Download `ClaudeUsageBar.zip` from the [Releases](https://github.com/ghostza1209/ClaudeUsageBar/releases) page.
+
 1. Unzip and move `ClaudeUsageBar.app` to `/Applications`.
-2. The app is ad-hoc signed, not notarized, so macOS blocks the first launch: right-click the app, choose **Open**, then **Open** again. (Or run `xattr -cr /Applications/ClaudeUsageBar.app` once.)
+2. The app is ad-hoc signed, not notarized, so macOS blocks the first launch. Either right-click the app, choose **Open**, then **Open** again; or, if that is not offered, open System Settings › Privacy & Security and press **Open Anyway**; or run `xattr -cr /Applications/ClaudeUsageBar.app` once.
 3. Click the menu bar icon, then **Settings**.
 
 ## Plan limits need one setup step
@@ -23,6 +25,6 @@ Claude Code only exposes your Plan limits to its statusline. In the popover, pre
 
 ```sh
 sh scripts/bundle.sh     # build, sign, open
-sh scripts/package.sh    # build and zip to dist/ClaudeUsageBar.zip
+sh scripts/package.sh    # universal build, zipped to dist/ClaudeUsageBar.zip
 swift test
 ```
