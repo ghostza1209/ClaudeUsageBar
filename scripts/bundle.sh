@@ -25,7 +25,7 @@ cat > "$app/Contents/Info.plist" <<'EOF'
 	<key>CFBundleIconFile</key><string>AppIcon</string>
 	<key>CFBundleName</key><string>ClaudeUsageBar</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>1.0.1</string>
+	<key>CFBundleShortVersionString</key><string>1.0.2</string>
 	<key>LSUIElement</key><true/>
 </dict>
 </plist>
