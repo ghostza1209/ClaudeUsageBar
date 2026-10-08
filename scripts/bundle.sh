@@ -2,13 +2,15 @@
 # Builds release, assembles an ad-hoc signed ClaudeUsageBar.app under .build/ and opens it.
 # NO_OPEN=1 stops after signing (used by package.sh). This is the only supported way to run the app (see docs/adr/0001).
 set -eu
+# SWIFT_FLAGS: extra `swift build` flags (package.sh passes --arch for a universal binary).
+SWIFT_FLAGS=${SWIFT_FLAGS:-}
 cd "$(dirname "$0")/.."
 
-swift build -c release --product ClaudeUsageBar
+swift build -c release $SWIFT_FLAGS --product ClaudeUsageBar
 app=.build/ClaudeUsageBar.app
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-bin=$(swift build -c release --show-bin-path)
+bin=$(swift build -c release $SWIFT_FLAGS --show-bin-path)
 cp "$bin/ClaudeUsageBar" "$app/Contents/MacOS/"
 cp -R "$bin/ClaudeUsageBar_UsageCore.bundle" "$app/Contents/Resources/"
 cat > "$app/Contents/Info.plist" <<'EOF'
@@ -20,7 +22,7 @@ cat > "$app/Contents/Info.plist" <<'EOF'
 	<key>CFBundleIdentifier</key><string>com.ysz.ClaudeUsageBar</string>
 	<key>CFBundleName</key><string>ClaudeUsageBar</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>0.1</string>
+	<key>CFBundleShortVersionString</key><string>1.0.0</string>
 	<key>LSUIElement</key><true/>
 </dict>
 </plist>
