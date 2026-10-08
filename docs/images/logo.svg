@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Claude Usage Bar logo">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A3A42"/>
+      <stop offset="1" stop-color="#141417"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".22"/>
+      <stop offset=".5" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="arc" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F2A17E"/>
+      <stop offset=".55" stop-color="#D97757"/>
+      <stop offset="1" stop-color="#B9573A"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#D97757" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#D97757" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+
+  <rect width="256" height="256" rx="58" fill="url(#bg)"/>
+  <rect x="1" y="1" width="254" height="254" rx="57" fill="none" stroke="url(#rim)" stroke-width="2"/>
+  <circle cx="128" cy="128" r="96" fill="url(#glow)"/>
+
+  <g transform="translate(0 10)">
+  <!-- tick marks -->
+  <g stroke="#FFFFFF" stroke-opacity=".18" stroke-width="3" stroke-linecap="round">
+    <path d="M128 26v8M128 202v8M36 118h8M212 118h8M63 53l6 6M187 177l6 6M63 183l6-6M187 59l6-6"/>
+  </g>
+
+  <!-- track + value arc (≈68%) -->
+  <circle cx="128" cy="118" r="66" fill="none" stroke="#FFFFFF" stroke-opacity=".09" stroke-width="20"/>
+  <circle cx="128" cy="118" r="66" fill="none" stroke="#D97757" stroke-opacity=".55" stroke-width="20"
+          stroke-linecap="round" stroke-dasharray="282 415" transform="rotate(-90 128 118)" filter="url(#soft)"/>
+  <circle cx="128" cy="118" r="66" fill="none" stroke="url(#arc)" stroke-width="20"
+          stroke-linecap="round" stroke-dasharray="282 415" transform="rotate(-90 128 118)"/>
+
+  <!-- menu bar pill -->
+  <rect x="98" y="108" width="60" height="20" rx="10" fill="#FFFFFF" fill-opacity=".1"/>
+  <rect x="98" y="108" width="40" height="20" rx="10" fill="url(#arc)"/>
+  </g>
+</svg>
