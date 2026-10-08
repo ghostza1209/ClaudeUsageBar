@@ -13,6 +13,7 @@ struct SettingsView: View {
     @AppStorage(Usage.criticalThresholdKey) private var critical = 95
     @AppStorage(Usage.gaugeColorKey) private var gaugeColor = GaugeColor.claude
     @AppStorage(Usage.gaugeWindowKey) private var gaugeWindow = GaugeWindow.weekly
+    @AppStorage(Usage.tourDoneKey) private var tourDone = false
     @State private var loginStatus = SMAppService.mainApp.status
     @State private var loginError: String?
     @State private var updatingPrices = false
@@ -47,6 +48,7 @@ struct SettingsView: View {
                         }
                     }
                 }
+                LabeledContent("Product tour") { Button("Show again") { tourDone = false } }
             }
             Card("Notifications") {
                 LabeledContent("Plan-limit notifications") {
