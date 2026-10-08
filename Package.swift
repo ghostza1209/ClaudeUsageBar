@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "ClaudeUsageBar",
-    platforms: [.macOS(.v27)],
+    platforms: [.macOS(.v15)],
     targets: [
         .target(name: "UsageCore", resources: [.copy("Resources/prices.json")]),
         .executableTarget(name: "ClaudeUsageBar", dependencies: ["UsageCore"]),

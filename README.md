@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  <img alt="version 1.0.0" src="https://img.shields.io/badge/version-1.0.0-D97757">
-  <img alt="macOS 27+" src="https://img.shields.io/badge/macOS-27%2B-lightgrey">
+  <img alt="version 1.0.1" src="https://img.shields.io/badge/version-1.0.1-D97757">
+  <img alt="macOS 15+" src="https://img.shields.io/badge/macOS-15%2B-lightgrey">
   <img alt="Apple silicon and Intel" src="https://img.shields.io/badge/arch-arm64%20%7C%20x86__64-lightgrey">
   <img alt="Swift Package" src="https://img.shields.io/badge/built%20with-SwiftUI-F05138">
 </p>
@@ -36,7 +36,7 @@ Paste this into Terminal. It installs the latest release to `/Applications` and 
 curl -fsSL https://raw.githubusercontent.com/ghostza1209/ClaudeUsageBar/HEAD/install.sh | sh
 ```
 
-Requires macOS 27 or later; the build is universal (Apple silicon and Intel).
+Requires macOS 15 or later; the build is universal (Apple silicon and Intel).
 
 <details>
 <summary>Manual install from the zip</summary>
