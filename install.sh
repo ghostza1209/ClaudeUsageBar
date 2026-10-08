@@ -14,7 +14,7 @@ trap 'rm -rf "$tmp"' EXIT
 echo "Downloading Claude Usage Bar..."
 curl -fsSL "$url" -o "$tmp/ClaudeUsageBar.zip"
 ditto -x -k "$tmp/ClaudeUsageBar.zip" "$tmp"
-pkill -x ClaudeUsageBar || true
+pkill -ax ClaudeUsageBar || true  # -a: also when the app itself runs this script (its Update button)
 mkdir -p "$dir"
 rm -rf "$app"
 mv "$tmp/ClaudeUsageBar.app" "$app"

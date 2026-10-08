@@ -91,6 +91,11 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     var hasLogs = false
     /// When the live price table was fetched; nil while it is the bundled snapshot. Popover age line, Settings (ticket 24).
     var pricesFetchedAt: Date?
+    /// A newer release's version, checked with the daily price fetch; the popover footer offers to install it.
+    var updateAvailable: String?
+    /// True while the install script runs; it quits this app on success, so only a failure ever resets it.
+    var updating = false
+    var updateFailed = false
     /// `@AppStorage` keys (percent, Int) for the ring colours; ticket 24 edits them; they also drive the notifications.
     static let warningThresholdKey = "warningThreshold"  // default 80
     static let criticalThresholdKey = "criticalThreshold"  // default 95
@@ -236,6 +241,27 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     private func priceTick() {
         armPriceTimer()
         Task { _ = await updatePrices() }
+        Task { await checkForUpdate() }
+    }
+
+    private func checkForUpdate() async {
+        guard let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+            let (data, _) = try? await URLSession.shared.data(
+                from: URL(string: "https://api.github.com/repos/ghostza1209/ClaudeUsageBar/releases/latest")!)
+        else { return }
+        updateAvailable = newerRelease(data, than: current)
+    }
+
+    /// Runs the one-line installer, which replaces the app, quits this copy and opens the new one.
+    func installUpdate() {
+        let script = Process()
+        script.executableURL = URL(filePath: "/bin/sh")
+        script.arguments = ["-c", "curl -fsSL https://raw.githubusercontent.com/ghostza1209/ClaudeUsageBar/HEAD/install.sh | sh"]
+        script.terminationHandler = { [weak self] _ in
+            Task { @MainActor in if let self { (self.updating, self.updateFailed) = (false, true) } }
+        }
+        (updating, updateFailed) = (true, false)
+        do { try script.run() } catch { (updating, updateFailed) = (false, true) }
     }
 
     private func armPriceTimer() {
@@ -430,6 +456,15 @@ struct Popover: View {
                 }
                 .keyboardShortcut(",", modifiers: .command)
                 Spacer()
+                if let version = usage.updateAvailable {
+                    Button { usage.installUpdate() } label: {
+                        Label(
+                            usage.updating ? "Updating…" : usage.updateFailed ? "Update failed, retry" : "Update to \(version)",
+                            systemImage: "arrow.down.circle")
+                    }
+                    .disabled(usage.updating).foregroundStyle(usage.updateFailed ? .red : .accentColor)
+                    Spacer()
+                }
                 Button { NSApp.terminate(nil) } label: { Label("Quit", systemImage: "power") }
                     .keyboardShortcut("q", modifiers: .command)
             }
