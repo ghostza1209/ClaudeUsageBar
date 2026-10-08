@@ -100,6 +100,8 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     static let gaugeWindowKey = "gaugeWindow"
     /// `@AppStorage` key (`GaugeColor` raw value, default `claude`) for the menu bar gauge.
     static let gaugeColorKey = "gaugeColor"
+    /// `@AppStorage` key (Bool, default false) set once the first-run tour is finished or skipped; Settings clears it.
+    static let tourDoneKey = "tourDone"
 
     /// Key shared with the Settings UI (ticket 24).
     static let billingCycleStartDayKey = "billingCycleStartDay"
@@ -392,11 +394,14 @@ struct Popover: View {
     @State private var showSettings = false
     @State private var contentHeight = 0.0
     @AppStorage(Usage.billingCycleStartDayKey) private var billingCycleStartDay = 1
+    @AppStorage(Usage.tourDoneKey) private var tourDone = false
+    @State private var tourStep = 0
+    @State private var window: NSWindow?
 
     var body: some View {
         VStack(spacing: 8) {
             if !showSettings {
-                PlanLimitsHeader(usage: usage)
+                PlanLimitsHeader(usage: usage).tourTarget(.header)
                 Picker("", selection: $tab) {
                     Label("Usage", systemImage: "chart.bar").tag(0)
                     Label("Processes", systemImage: "cpu").tag(1)
@@ -424,11 +429,16 @@ struct Popover: View {
             .frame(height: min(contentHeight, showSettings ? 500 : 620))
             .animation(.snappy(duration: 0.2), value: tab)
             .animation(.snappy(duration: 0.2), value: showSettings)
+            .tourTarget(.content)
+            if !tourDone {
+                TourCard(step: $tourStep) { (tourDone, tourStep, tab) = (true, 0, 0) }.tourTarget(.card)
+            }
             HStack {
                 Button { showSettings.toggle() } label: {
                     Label(showSettings ? "Back" : "Settings", systemImage: showSettings ? "chevron.left" : "gearshape")
                 }
                 .keyboardShortcut(",", modifiers: .command)
+                .tourTarget(.settings)
                 Spacer()
                 Button { NSApp.terminate(nil) } label: { Label("Quit", systemImage: "power") }
                     .keyboardShortcut("q", modifiers: .command)
@@ -436,28 +446,44 @@ struct Popover: View {
             .buttonStyle(.borderless).foregroundStyle(.secondary).font(.callout)
         }
         .padding(10)
+        .overlayPreferenceValue(TourTargets.self) { anchors in
+            Spotlight(target: tourDone ? nil : TourStep.all[tourStep].target, anchors: anchors)
+        }
         .frame(width: 360)
         .onChange(of: billingCycleStartDay, initial: true) { usage.billingCycleStartDay = billingCycleStartDay }
+        .onChange(of: tourStep) { if let step = TourStep.all[tourStep].tab { tab = step } }
+        .onChange(of: tourDone) { if !tourDone { showSettings = false } }
         .onChange(of: open && tab == 1 && !showSettings, initial: true) { usage.processes.sampling = open && tab == 1 && !showSettings }
         .onChange(of: open && tab == 2 && !showSettings, initial: true) { usage.git.scanning = open && tab == 2 && !showSettings }
-        .background(KeyWindowObserver {
-            (usage.popoverOpen, open) = ($0, $0)
-            if !$0 { showSettings = false }
+        .onGeometryChange(for: Double.self, of: { $0.size.height }) { fitWindow(height: $0) }
+        .background(KeyWindowObserver { window, isKey in
+            (usage.popoverOpen, open, self.window) = (isKey, isKey, window)
+            if !isKey { showSettings = false }
         })
+    }
+
+    /// The menu bar window grows with the content but does not shrink: it keeps its size and centres the content,
+    /// which leaves a gap under the menu bar. Shrink it here, keeping the top edge where it is.
+    private func fitWindow(height: Double) {
+        guard let window, abs(window.frame.height - height) > 0.5 else { return }
+        var frame = window.frame
+        frame.origin.y += frame.height - height
+        frame.size.height = height
+        window.setFrame(frame, display: true)
     }
 }
 
-/// Reports whether the hosting window is key. The popover panel is key exactly while open, and unlike
+/// Reports the hosting window and whether it is key. The popover panel is key exactly while open, and unlike
 /// `onAppear` this fires on every open.
 struct KeyWindowObserver: NSViewRepresentable {
-    let onChange: (Bool) -> Void
+    let onChange: (NSWindow, Bool) -> Void
 
     func makeNSView(context: Context) -> NSView { Observer(onChange) }
     func updateNSView(_ view: NSView, context: Context) {}
 
     private final class Observer: NSView {
-        let onChange: (Bool) -> Void
-        init(_ onChange: @escaping (Bool) -> Void) {
+        let onChange: (NSWindow, Bool) -> Void
+        init(_ onChange: @escaping (NSWindow, Bool) -> Void) {
             self.onChange = onChange
             super.init(frame: .zero)
         }
@@ -467,11 +493,11 @@ struct KeyWindowObserver: NSViewRepresentable {
             NotificationCenter.default.removeObserver(self)
             guard let window else { return }
             for (name, isKey) in [(NSWindow.didBecomeKeyNotification, true), (NSWindow.didResignKeyNotification, false)] {
-                NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.onChange(isKey) }
+                NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self, weak window] _ in
+                    MainActor.assumeIsolated { if let window { self?.onChange(window, isKey) } }
                 }
             }
-            onChange(window.isKeyWindow)
+            onChange(window, window.isKeyWindow)
         }
     }
 }
