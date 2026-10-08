@@ -452,7 +452,7 @@ struct Popover: View {
                 .onGeometryChange(for: Double.self, of: { $0.size.height }) { contentHeight = $0 }
             }
             .scrollIndicators(.never)
-            .frame(height: min(contentHeight, showSettings ? 500 : 620))
+            .frame(height: min(contentHeight, 620))
             .animation(.snappy(duration: 0.2), value: tab)
             .animation(.snappy(duration: 0.2), value: showSettings)
             .tourTarget(.content)

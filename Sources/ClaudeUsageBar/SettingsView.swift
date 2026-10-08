@@ -21,23 +21,14 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            Card("General") {
-                LabeledContent("Launch at login") {
-                    Toggle("", isOn: Binding(get: { loginStatus == .enabled }, set: setLaunchAtLogin)).labelsHidden()
-                }
-                if loginStatus == .requiresApproval {
-                    note("Approve ClaudeUsageBar in System Settings > General > Login Items.")
-                }
-                if let loginError { note(loginError, .red) }
-                stepper("Billing-cycle start day", "\(billingCycleStartDay)", $billingCycleStartDay, 1...31, step: 1)
-                note("Months shorter than this use their last day.")
-                LabeledContent("Menu bar shows") {
+            Card("Menu bar") {
+                row("gauge.with.dots.needle.67percent", "Show", "Which Plan limit the gauge tracks.") {
                     Picker("", selection: $gaugeWindow) {
                         ForEach(GaugeWindow.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }
-                LabeledContent("Menu bar colour") {
+                row("paintpalette", "Colour", gaugeColor.title) {
                     HStack(spacing: 8) {
                         ForEach(GaugeColor.allCases, id: \.self) { choice in
                             Button { gaugeColor = choice } label: {
@@ -48,32 +39,54 @@ struct SettingsView: View {
                         }
                     }
                 }
-                LabeledContent("Product tour") { Button("Show again") { tourDone = false } }
             }
-            Card("Notifications") {
-                LabeledContent("Plan-limit notifications") {
-                    Toggle("", isOn: $notificationsEnabled).labelsHidden()
+            Card("General") {
+                row("power", "Launch at login", "Start Claude Usage Bar when you log in.") {
+                    Toggle("", isOn: Binding(get: { loginStatus == .enabled }, set: setLaunchAtLogin)).labelsHidden().toggleStyle(.switch)
+                }
+                if loginStatus == .requiresApproval {
+                    note("Approve ClaudeUsageBar in System Settings > General > Login Items.", .orange)
+                }
+                if let loginError { note(loginError, .red) }
+                row("calendar", "Billing cycle starts on", "The Billing cycle card counts from this day. Short months use their last day.") {
+                    stepper("Day \(billingCycleStartDay)", $billingCycleStartDay, 1...31, step: 1)
+                }
+                row("questionmark.circle", "Product tour", "Walk through the app again.") {
+                    Button("Show again") { tourDone = false }
+                }
+            }
+            Card("Plan-limit alerts") {
+                row("bell", "Notifications", "Alert when a Plan limit crosses a threshold.") {
+                    Toggle("", isOn: $notificationsEnabled).labelsHidden().toggleStyle(.switch)
                 }
                 // Each range keeps warning < critical, so an invalid pair cannot be stored.
-                stepper("Warning at", "\(warning)%", $warning, 50...(critical - 5), step: 5)
-                stepper("Critical at", "\(critical)%", $critical, (warning + 5)...100, step: 5)
-                note("The thresholds also colour the Plan-limits rings.")
+                row("exclamationmark.triangle", "Warning at", nil, tint: .orange) {
+                    stepper("\(warning)%", $warning, 50...(critical - 5), step: 5)
+                }
+                row("exclamationmark.octagon", "Critical at", nil, tint: .red) {
+                    stepper("\(critical)%", $critical, (warning + 5)...100, step: 5)
+                }
+                note("These thresholds also colour the Plan-limits rings.")
             }
-            Card("Statusline") {
-                HStack {
-                    Text(usage.wrapperInstalled ? "Wrapper installed" : "Wrapper not installed")
-                    Spacer()
-                    Button("Install") { usage.installWrapper() }.disabled(usage.wrapperInstalled)
-                    Button("Uninstall") { usage.uninstallWrapper() }
+            Card("Plan-limits source") {
+                row(usage.wrapperInstalled ? "checkmark.circle.fill" : "exclamationmark.circle.fill",
+                    usage.wrapperInstalled ? "Connected to Claude Code" : "Not connected",
+                    "A small statusline script passes your Plan limits from Claude Code to this app. Your existing statusline keeps working.",
+                    tint: usage.wrapperInstalled ? .green : .orange) {
+                    if usage.wrapperInstalled {
+                        Button("Uninstall") { usage.uninstallWrapper() }
+                    } else {
+                        Button("Install") { usage.installWrapper() }.buttonStyle(.borderedProminent)
+                    }
                 }
                 if let error = usage.wrapperError { note(error, .red) }
             }
             Card("Prices") {
-                HStack {
-                    Text(priceAgeText(fetchedAt: usage.pricesFetchedAt, now: .now))
-                    Spacer()
-                    if updatingPrices { ProgressView().controlSize(.small) }
-                    Button("Update now", action: updatePrices).disabled(updatingPrices)
+                row("dollarsign.circle", "Model prices", priceAgeText(fetchedAt: usage.pricesFetchedAt, now: .now)) {
+                    HStack(spacing: 6) {
+                        if updatingPrices { ProgressView().controlSize(.small) }
+                        Button("Update now", action: updatePrices).disabled(updatingPrices)
+                    }
                 }
                 if let priceError { note("Update failed: \(priceError)", .red) }
             }
@@ -89,17 +102,29 @@ struct SettingsView: View {
         }
     }
 
-    private func stepper(_ title: String, _ value: String, _ binding: Binding<Int>, _ range: ClosedRange<Int>, step: Int) -> some View {
-        LabeledContent(title) {
-            HStack(spacing: 6) {
-                Text(value).monospacedDigit()
-                Stepper("", value: binding, in: range, step: step).labelsHidden()
+    /// Icon, title and an optional one-line explanation on the left; the control on the right.
+    private func row(_ icon: String, _ title: String, _ detail: String?, tint: Color = .secondary,
+                     @ViewBuilder control: () -> some View) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            Image(systemName: icon).foregroundStyle(tint).frame(width: 16)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                if let detail { Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
             }
+            Spacer(minLength: 8)
+            control()
+        }
+    }
+
+    private func stepper(_ value: String, _ binding: Binding<Int>, _ range: ClosedRange<Int>, step: Int) -> some View {
+        HStack(spacing: 6) {
+            Text(value).monospacedDigit()
+            Stepper("", value: binding, in: range, step: step).labelsHidden()
         }
     }
 
     private func note(_ text: String, _ style: Color = .secondary) -> some View {
-        Text(text).font(.caption2).foregroundStyle(style)
+        Text(text).font(.caption).foregroundStyle(style).padding(.leading, 24)
     }
 
     private func setLaunchAtLogin(_ on: Bool) {
