@@ -30,11 +30,21 @@ Everything runs on your Mac. The only network call is the price table, fetched e
 
 ## Install
 
-Download `ClaudeUsageBar.zip` from the [Releases](https://github.com/ghostza1209/ClaudeUsageBar/releases) page. Requires macOS 27 or later; the build is universal (Apple silicon and Intel).
+Paste this into Terminal. It installs the latest release to `/Applications` and opens it; run it again to update.
 
-1. Unzip and move `ClaudeUsageBar.app` to `/Applications`.
+```sh
+curl -fsSL https://raw.githubusercontent.com/ghostza1209/ClaudeUsageBar/HEAD/install.sh | sh
+```
+
+Requires macOS 27 or later; the build is universal (Apple silicon and Intel).
+
+<details>
+<summary>Manual install from the zip</summary>
+
+1. Download `ClaudeUsageBar.zip` from the [Releases](https://github.com/ghostza1209/ClaudeUsageBar/releases) page, unzip it and move `ClaudeUsageBar.app` to `/Applications`.
 2. The app is ad-hoc signed, not notarized, so macOS blocks the first launch. Either right-click the app, choose **Open**, then **Open** again; or, if that is not offered, open System Settings › Privacy & Security and press **Open Anyway**; or run `xattr -cr /Applications/ClaudeUsageBar.app` once.
-3. Click the menu bar icon, then **Settings**.
+
+</details>
 
 ## One setup step for Plan limits
 
