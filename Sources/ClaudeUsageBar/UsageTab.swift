@@ -130,7 +130,7 @@ struct UsageTab: View {
         return Card("14 days") {
             Group {
                 if let h = hovered {
-                    Text("\(h.day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(enUS))) · \(fullCurrency(h.cost))")
+                    Text("\(h.day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(enUS))) · \(fullCurrency(h.cost)) · \(tokenCount(h.tokens)) tokens · \(h.requests.formatted(.number.locale(enUS))) req")
                 } else {
                     Text("total \(fullCurrency(total)) · avg \(fullCurrency(total / Double(s.daily.count)))/day")
                 }

@@ -61,6 +61,8 @@ func billingCycleStartClampsToMonthEnd(now: String, day: Int, start: String) {
     #expect(s.daily[13].day == at("2026-10-06T17:00:00Z"))
     #expect(s.daily.map(\.cost).enumerated().filter { $0.element != 0 }.map { "\($0.offset):\(String(format: "%.2f", $0.element))" }
         == ["10:3.00", "12:1.02", "13:2.70"])
+    #expect(s.daily.enumerated().filter { $0.element.requests > 0 }.map { "\($0.offset):\($0.element.tokens)/\($0.element.requests)" }
+        == ["10:3000000/1", "12:10000000/1", "13:3611000/3"])
 
     #expect(s.models.map(\.model) == ["m", "adv", "zz"])
     #expect(s.models.map(\.tokens) == [11_600_000, 11_000, 2_000_000])
