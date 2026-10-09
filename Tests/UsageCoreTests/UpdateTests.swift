@@ -10,9 +10,14 @@ import UsageCore
     ("v1.0.0", "1.0.1", nil),
 ])
 func newerReleaseComparesNumerically(tag: String, current: String, expected: String?) {
-    #expect(newerRelease(Data(#"{"tag_name":"\#(tag)","name":"x"}"#.utf8), than: current) == expected)
+    #expect(newerRelease(Data(#"{"tag_name":"\#(tag)","name":"x"}"#.utf8), than: current) == .success(expected))
 }
 
-@Test func newerReleaseIgnoresAnErrorBody() {
-    #expect(newerRelease(Data(#"{"message":"API rate limit exceeded"}"#.utf8), than: "1.0.1") == nil)
+@Test func newerReleaseFailsOnAnErrorBodyWithGitHubsMessage() {
+    #expect(newerRelease(Data(#"{"message":"API rate limit exceeded"}"#.utf8), than: "1.0.1")
+        == .failure(UpdateCheckError(message: "API rate limit exceeded")))
+}
+
+@Test func newerReleaseFailsOnABodyThatIsNotJSON() {
+    guard case .failure = newerRelease(Data("<html>".utf8), than: "1.0.1") else { Issue.record("expected a failure"); return }
 }
