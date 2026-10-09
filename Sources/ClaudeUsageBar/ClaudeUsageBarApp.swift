@@ -91,7 +91,7 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     var hasLogs = false
     /// When the live price table was fetched; nil while it is the bundled snapshot. Popover age line, Settings (ticket 24).
     var pricesFetchedAt: Date?
-    /// A newer release's version, checked with the daily price fetch; the popover footer offers to install it.
+    /// A newer release's version, checked with the daily price fetch and from Settings; the footer and Settings offer to install it.
     var updateAvailable: String?
     /// True while the install script runs; it quits this app on success, so only a failure ever resets it.
     var updating = false

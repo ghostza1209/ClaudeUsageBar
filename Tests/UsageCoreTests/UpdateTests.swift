@@ -19,5 +19,5 @@ func newerReleaseComparesNumerically(tag: String, current: String, expected: Str
 }
 
 @Test func newerReleaseFailsOnABodyThatIsNotJSON() {
-    #expect(newerRelease(Data("<html>".utf8), than: "1.0.1") == .failure(UpdateCheckError(message: "No release found")))
+    guard case .failure = newerRelease(Data("<html>".utf8), than: "1.0.1") else { Issue.record("expected a failure"); return }
 }

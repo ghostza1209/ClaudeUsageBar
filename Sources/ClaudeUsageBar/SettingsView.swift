@@ -97,7 +97,9 @@ struct SettingsView: View {
                     HStack(spacing: 6) {
                         if checkingUpdate { ProgressView().controlSize(.small) }
                         if let version = usage.updateAvailable {
-                            Button(usage.updating ? "Updating…" : "Install \(version)") { usage.installUpdate() }
+                            Button(usage.updating ? "Updating…" : usage.updateFailed ? "Retry install" : "Install \(version)") {
+                                usage.installUpdate()
+                            }
                                 .buttonStyle(.borderedProminent).disabled(usage.updating)
                         } else {
                             Button("Check for updates", action: checkForUpdate).disabled(checkingUpdate)
