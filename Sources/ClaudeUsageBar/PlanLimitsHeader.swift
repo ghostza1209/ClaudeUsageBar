@@ -52,7 +52,7 @@ struct PlanLimitsHeader: View {
             case .warning: .orange
             case .critical: .red
             }
-        let reset = window.map { resetText($0.resetsAt, now: usage.now, weekly: weekly, calendar: .current) } ?? "no data"
+        let reset = window.map { resetText($0.resetsAt, now: usage.now, weekly: weekly, calendar: .current) } ?? "no usage yet"
         return Card {
             HStack(spacing: 8) {
                 ZStack {
@@ -64,7 +64,7 @@ struct PlanLimitsHeader: View {
                         )
                         .rotationEffect(.degrees(-90))
                         .opacity(percent > 0 ? 1 : 0)
-                    Text(window == nil ? "—" : "\(Int(percent.rounded()))%")
+                    Text("\(Int(percent.rounded()))%")
                         .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
                         .contentTransition(.numericText())
                 }
@@ -77,6 +77,6 @@ struct PlanLimitsHeader: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(window == nil ? "\(name) limit, no data" : "\(name) limit \(Int(percent.rounded())) percent, \(reset)")
+        .accessibilityLabel("\(name) limit \(Int(percent.rounded())) percent, \(reset)")
     }
 }
