@@ -9,6 +9,8 @@ private func tokenCount(_ n: Int) -> String { n.formatted(.number.notation(.comp
 /// TermTracker order: Billing cycle with token breakdown, Today with last hour, 14 days, per model.
 struct UsageTab: View {
     let usage: Usage
+    @State private var hoveredMinute: Int?
+    @State private var hoveredDay: Date?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -77,26 +79,69 @@ struct UsageTab: View {
                 Text("\(tokenCount(s.todayTokens)) tokens · \(s.todayRequests.formatted(.number.locale(enUS))) requests")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            SectionTitle("Last hour · tokens/min")
+            let hovered = hoveredMinute.map { min(max($0, 0), 59) }
+            HStack {
+                SectionTitle("Last hour · tokens/min")
+                Spacer()
+                Group {
+                    if let i = hovered {
+                        Text("\(59 - i == 0 ? "now" : "\(59 - i)m ago") · \(tokenCount(s.lastHour[i]))")
+                    } else {
+                        Text("peak \(tokenCount(s.lastHour.max() ?? 0)) · total \(tokenCount(s.lastHour.reduce(0, +)))")
+                    }
+                }
+                .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+            }
             Chart(Array(s.lastHour.enumerated()), id: \.offset) {
                 AreaMark(x: .value("min", $0.offset), y: .value("tokens/min", $0.element))
                     .interpolationMethod(.catmullRom)
                     .foregroundStyle(.linearGradient(colors: [.accentColor.opacity(0.5), .accentColor.opacity(0.02)], startPoint: .top, endPoint: .bottom))
                 LineMark(x: .value("min", $0.offset), y: .value("tokens/min", $0.element))
                     .interpolationMethod(.catmullRom).foregroundStyle(Color.accentColor)
+                if let i = hovered, $0.offset == i {
+                    RuleMark(x: .value("min", i)).foregroundStyle(.secondary.opacity(0.5))
+                    PointMark(x: .value("min", i), y: .value("tokens/min", $0.element)).symbolSize(20)
+                }
             }
-            .chartXAxis(.hidden).chartYAxis(.hidden).frame(height: 30)
+            .chartXSelection(value: $hoveredMinute)
+            .chartXScale(domain: 0...59)
+            .chartXAxis {
+                AxisMarks(values: [0, 15, 30, 45]) { value in
+                    AxisGridLine().foregroundStyle(.quaternary)
+                    AxisValueLabel(value.as(Int.self).map { "-\(60 - $0)m" } ?? "")
+                }
+                // Right-anchored so "now" is not clipped at the plot edge.
+                AxisMarks(values: [59]) { _ in AxisValueLabel("now", anchor: .topTrailing) }
+            }
+            .chartYAxis {
+                AxisMarks(values: .automatic(desiredCount: 2)) { value in
+                    AxisGridLine().foregroundStyle(.quaternary)
+                    AxisValueLabel(value.as(Int.self).map(tokenCount) ?? "")
+                }
+            }
+            .frame(height: 70)
         }
     }
 
     private func days(_ s: UsageSummary) -> some View {
         let today = s.daily.last?.day
+        let hovered = hoveredDay.flatMap { d in s.daily.last { $0.day <= d } }
+        let total = s.daily.reduce(0) { $0 + $1.cost }
         return Card("14 days") {
+            Group {
+                if let h = hovered {
+                    Text("\(h.day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().locale(enUS))) · \(fullCurrency(h.cost))")
+                } else {
+                    Text("total \(fullCurrency(total)) · avg \(fullCurrency(total / Double(s.daily.count)))/day")
+                }
+            }
+            .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
             Chart(s.daily, id: \.day) {
                 BarMark(x: .value("day", $0.day, unit: .day), y: .value("$", $0.cost))
                     .cornerRadius(3)
-                    .foregroundStyle($0.day == today ? Color.accentColor : Color.accentColor.opacity(0.35))
+                    .foregroundStyle($0.day == hovered?.day || (hovered == nil && $0.day == today) ? Color.accentColor : Color.accentColor.opacity(0.35))
             }
+            .chartXSelection(value: $hoveredDay)
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day)) { _ in
                     AxisValueLabel(format: .dateTime.weekday(.narrow).locale(enUS), centered: true)
@@ -109,7 +154,7 @@ struct UsageTab: View {
                     AxisValueLabel(value.as(Double.self).map { compactCurrency($0).replacing(".00", with: "") } ?? "")
                 }
             }
-            .frame(height: 60)
+            .frame(height: 80)
         }
     }
 
