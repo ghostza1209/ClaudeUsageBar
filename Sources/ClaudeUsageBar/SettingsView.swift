@@ -18,6 +18,8 @@ struct SettingsView: View {
     @State private var loginError: String?
     @State private var updatingPrices = false
     @State private var priceError: String?
+    @State private var checkingUpdate = false
+    @State private var updateCheck: Result<String?, UpdateCheckError>?
 
     var body: some View {
         VStack(spacing: 6) {
@@ -85,10 +87,30 @@ struct SettingsView: View {
                 row("dollarsign.circle", "Model prices", priceAgeText(fetchedAt: usage.pricesFetchedAt, now: .now)) {
                     HStack(spacing: 6) {
                         if updatingPrices { ProgressView().controlSize(.small) }
-                        Button("Update now", action: updatePrices).disabled(updatingPrices)
+                        Button("Refresh prices", action: updatePrices).disabled(updatingPrices)
                     }
                 }
-                if let priceError { note("Update failed: \(priceError)", .red) }
+                if let priceError { note("Refresh failed: \(priceError)", .red) }
+            }
+            Card("App version") {
+                row("app.badge", "Version \(Usage.appVersion ?? "unknown")", nil) {
+                    HStack(spacing: 6) {
+                        if checkingUpdate { ProgressView().controlSize(.small) }
+                        if let version = usage.updateAvailable {
+                            Button(usage.updating ? "Updating…" : "Install \(version)") { usage.installUpdate() }
+                                .buttonStyle(.borderedProminent).disabled(usage.updating)
+                        } else {
+                            Button("Check for updates", action: checkForUpdate).disabled(checkingUpdate)
+                        }
+                    }
+                }
+                if let version = usage.updateAvailable {
+                    note("Version \(version) is available.")
+                } else if case .success = updateCheck {
+                    note("You're up to date.")
+                } else if case .failure(let error) = updateCheck {
+                    note("Check failed: \(error.message)", .red)
+                }
             }
         }
         .controlSize(.small)
@@ -142,6 +164,14 @@ struct SettingsView: View {
         Task {
             if case .failure(let error) = await usage.updatePrices() { priceError = error.message } else { priceError = nil }
             updatingPrices = false
+        }
+    }
+
+    private func checkForUpdate() {
+        checkingUpdate = true
+        Task {
+            updateCheck = await usage.checkForUpdate()
+            checkingUpdate = false
         }
     }
 }

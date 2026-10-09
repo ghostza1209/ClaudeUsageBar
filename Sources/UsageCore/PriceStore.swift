@@ -26,7 +26,7 @@ public actor PriceStore {
     }
 
     /// Fetches and adopts a new table. On any failure the current table and cache stay as they are. The UI's
-    /// "Update now" shows `message`; the scheduled fetch ignores the result.
+    /// "Refresh prices" shows `message`; the scheduled fetch ignores the result.
     public func updateNow() async -> Result<Void, PriceUpdateError> {
         let data: Data
         do { data = try await fetcher() } catch { return .failure(PriceUpdateError(message: error.localizedDescription)) }

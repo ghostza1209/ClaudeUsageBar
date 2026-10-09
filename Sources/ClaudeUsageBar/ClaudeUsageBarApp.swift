@@ -243,15 +243,26 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     private func priceTick() {
         armPriceTimer()
         Task { _ = await updatePrices() }
-        Task { await checkForUpdate() }
+        Task { _ = await checkForUpdate() }
     }
 
-    private func checkForUpdate() async {
-        guard let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
-            let (data, _) = try? await URLSession.shared.data(
+    /// Nil when run outside the bundle (`swift run`).
+    static let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+
+    /// The daily check ignores the result; Settings' "Check for updates" shows it. Only a success touches
+    /// `updateAvailable`, so a failed check keeps an update already found.
+    func checkForUpdate() async -> Result<String?, UpdateCheckError> {
+        guard let current = Self.appVersion else { return .failure(UpdateCheckError(message: "Unknown app version")) }
+        let data: Data
+        do {
+            (data, _) = try await URLSession.shared.data(
                 from: URL(string: "https://api.github.com/repos/ghostza1209/ClaudeUsageBar/releases/latest")!)
-        else { return }
-        updateAvailable = newerRelease(data, than: current)
+        } catch {
+            return .failure(UpdateCheckError(message: error.localizedDescription))
+        }
+        let result = newerRelease(data, than: current)
+        if case .success(let version) = result { updateAvailable = version }
+        return result
     }
 
     /// Runs the one-line installer, which replaces the app, quits this copy and opens the new one.
@@ -275,7 +286,7 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
         priceTimer = timer
     }
 
-    /// Fetches the price table now (ticket 24's "Update now" calls this); on success restarts the 24 h timer and
+    /// Fetches the price table now (Settings' "Refresh prices" calls this); on success restarts the 24 h timer and
     /// re-prices the title and, if open, the summary. `pricesFetchedAt` is the age to display.
     func updatePrices() async -> Result<Void, PriceUpdateError> {
         let result = await priceStore.updateNow()

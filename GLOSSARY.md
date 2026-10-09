@@ -13,3 +13,7 @@
 **Billing cycle**: The monthly period, starting on a user-set day, over which cumulative usage totals are counted.
 
 **Unpriced model**: A model with no known API price. Its tokens are still counted, but it is left out of the API list estimate.
+
+**App update**: A newer version of Claude Usage Bar published as a release. Never used for refreshing prices.
+
+**Price refresh**: Downloading the latest model price table that the API list estimate is calculated from.
