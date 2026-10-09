@@ -67,11 +67,10 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     private var baseTitle: String?
     var title: String? { titleWithWarning(baseTitle, warning: planLimits.warnsInTitle) }
     /// The menu bar label: the chosen window's percent used, or `—` / `⚠` (wrapper missing, capture unreadable) with an empty bar.
+    /// A window Claude Code left out of a good capture reads as 0%: it does that right after the window resets.
     func menuBarGauge(_ which: GaugeWindow) -> (percent: Double, text: String) {
-        guard case .ok(let fiveHour, let weekly, _) = planLimits, let window = which == .weekly ? weekly : fiveHour else {
-            return (0, planLimits.warnsInTitle ? "⚠" : "—")
-        }
-        let percent = window.displayPercent(now: .now)
+        guard case .ok(let fiveHour, let weekly, _) = planLimits else { return (0, planLimits.warnsInTitle ? "⚠" : "—") }
+        let percent = (which == .weekly ? weekly : fiveHour)?.displayPercent(now: .now) ?? 0
         return (percent, "\(Int(percent.rounded()))%")
     }
     /// Settings shows it next to the Install / Uninstall buttons.
