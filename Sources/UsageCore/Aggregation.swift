@@ -3,6 +3,7 @@ import Foundation
 public struct DayCost: Sendable, Equatable {
     public let day: Date
     public var cost: Double
+    public var tokens = 0, requests = 0
 }
 
 public struct ModelUsage: Sendable, Equatable {
@@ -71,6 +72,8 @@ public func summarize(
         }
         if let day = summary.daily.lastIndex(where: { $0.day <= record.timestamp }) {
             summary.daily[day].cost += cost
+            summary.daily[day].tokens += tokens
+            summary.daily[day].requests += 1
         }
         if record.timestamp >= today.start {
             summary.todayCost += cost
