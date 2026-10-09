@@ -5,7 +5,8 @@
 <h1 align="center">Claude Usage Bar</h1>
 
 <p align="center">
-  Your Claude Code limits and spend, one glance away in the macOS menu bar.
+  <b>Never get surprised by a Claude Code rate limit again.</b><br>
+  Your 5-hour and Weekly limits, spend and sessions, one glance away in the macOS menu bar.
 </p>
 
 <p align="center">
@@ -16,17 +17,23 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/screenshot.png" width="360" alt="Claude Usage Bar popover showing the 5-hour and Weekly limits, billing cycle cost and a 14-day chart">
+  <a href="#install"><b>Install in one line</b></a> ·
+  <a href="#about-the-numbers">How accurate is it?</a> ·
+  <a href="#privacy">Privacy</a>
 </p>
 
-## What you get
+<p align="center">
+  <img src="docs/images/screenshot.png" width="364" alt="Usage tab: 5-hour and Weekly limits, billing cycle cost with token breakdown, today's tokens-per-minute chart, a 14-day cost chart and per-model spend">
+</p>
 
-- **Plan limits in the menu bar.** A mini gauge for your 5-hour or Weekly window, in Claude Code orange (or any colour you pick), plus the time until it resets. Optional notifications as you approach a limit.
-- **Usage.** Cost for the billing cycle and today, a token breakdown (input, output, cache read, cache write), a tokens-per-minute chart for the last hour and a 14-day cost chart.
-- **Processes.** Every running Claude Code session with its CPU, memory and uptime, and a button to stop it.
-- **Git.** Status of the repos Claude Code has been working in, at a glance.
+## Why you'll like it
 
-Everything runs on your Mac. The only network call is the price table, fetched every 24 hours from LiteLLM's public file on GitHub.
+- ⏱️ **See your limits before you hit them.** A mini gauge for the 5-hour or Weekly window sits in the menu bar with the time until it resets. Turn on notifications to get a nudge as you approach a limit.
+- 💸 **Know what your usage is worth.** You get cost for the billing cycle and for today, a token breakdown (input, output, cache read, cache write), and spend per model such as Opus, Sonnet and Haiku.
+- 📈 **Spot the busy hours and heavy days.** A live tokens-per-minute chart covers the last hour and a cost chart covers 14 days. Hover either one for exact numbers.
+- 🧹 **Rein in runaway sessions.** Every running Claude Code session is listed with its CPU, memory and uptime, plus a button to stop it.
+- 🌿 **Keep an eye on your repos.** The Git tab shows the status of every repo Claude Code has been working in.
+- 🔒 **Private by design.** Everything runs on your Mac. The only network call fetches the price table from LiteLLM's public file on GitHub, once every 24 hours.
 
 ## Install
 
