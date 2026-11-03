@@ -6,7 +6,9 @@
 
 **Weekly window**: The seven-day period over which a Claude subscription plan caps usage.
 
-**Plan limits**: The 5-hour window and Weekly window together, expressed as percent used and time until reset.
+**Plan limits**: The windows a plan caps (the 5-hour window and Weekly window, minus any Uncapped window), expressed as percent used and time until reset.
+
+**Uncapped window**: A window the user's plan does not cap, such as the 5-hour window on Ultra. Claude Code leaves it out of the rate limits it reports, so it is not shown. Not the same as a capped window that is merely empty right after a reset.
 
 **API list estimate**: What the logged tokens would have cost at Anthropic's public API prices. Not what the user actually pays on a subscription.
 

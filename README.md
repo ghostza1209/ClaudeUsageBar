@@ -28,7 +28,7 @@
 
 ## Why you'll like it
 
-- ⏱️ **See your limits before you hit them.** A mini gauge for the 5-hour or Weekly window sits in the menu bar with the time until it resets. Turn on notifications to get a nudge as you approach a limit.
+- ⏱️ **See your limits before you hit them.** A mini gauge for the 5-hour or Weekly window (Weekly only on Ultra, which has no 5-hour limit) sits in the menu bar with the time until it resets. Turn on notifications to get a nudge as you approach a limit.
 - 💸 **Know what your usage is worth.** You get cost for the billing cycle and for today, a token breakdown (input, output, cache read, cache write), and spend per model such as Opus, Sonnet and Haiku.
 - 📈 **Spot the busy hours and heavy days.** A live tokens-per-minute chart covers the last hour and a cost chart covers 14 days. Hover either one for exact numbers.
 - 🧹 **Rein in runaway sessions.** Every running Claude Code session is listed with its CPU, memory and uptime, plus a button to stop it.
@@ -55,7 +55,7 @@ Requires macOS 15 or later; the build is universal (Apple silicon and Intel).
 
 ## One setup step for Plan limits
 
-Claude Code only exposes your 5-hour and Weekly limits to its statusline. In the popover, press **Install…** (or Settings › Statusline › Install). This points `statusLine.command` in `~/.claude/settings.json` at a small wrapper that saves the limits and then runs your previous statusline unchanged. **Uninstall** restores the previous setting. Without it the gauge shows `⚠`.
+Claude Code only exposes your 5-hour and Weekly limits to its statusline (Ultra has no 5-hour limit, so only Weekly shows). In the popover, press **Install…** (or Settings › Statusline › Install). This points `statusLine.command` in `~/.claude/settings.json` at a small wrapper that saves the limits and then runs your previous statusline unchanged. **Uninstall** restores the previous setting. Without it the gauge shows `⚠`.
 
 ## About the numbers
 

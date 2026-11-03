@@ -18,7 +18,7 @@ struct PlanLimitsHeader: View {
         case .ok(let fiveHour, let sevenDay, let capturedAt):
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
-                    ring("5-hour", fiveHour, weekly: false)
+                    if !usage.fiveHourUncapped { ring("5-hour", fiveHour, weekly: false) }
                     ring("Weekly", sevenDay, weekly: true)
                 }
                 Text(ageText(capturedAt: capturedAt, now: usage.now)).font(.caption2)

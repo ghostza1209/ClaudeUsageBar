@@ -9,7 +9,7 @@ struct TourStep {
         TourStep(icon: "gauge.with.dots.needle.67percent", title: "Welcome to Claude Usage Bar",
                  text: "The gauge in the menu bar shows how much of your Weekly limit you have used, and when it resets.", tab: nil, target: nil),
         TourStep(icon: "circle.dashed", title: "Plan limits",
-                 text: "Your 5-hour and Weekly limits, straight from Claude Code. If you see ⚠, press Install… once.", tab: nil, target: .header),
+                 text: "Your 5-hour and Weekly limits (Ultra has no 5-hour limit), straight from Claude Code. If you see ⚠, press Install… once.", tab: nil, target: .header),
         TourStep(icon: "chart.bar", title: "Usage",
                  text: "Cost for the billing cycle and today at API list prices (an estimate, not your plan bill), tokens and charts.", tab: 0, target: .content),
         TourStep(icon: "cpu", title: "Processes",
