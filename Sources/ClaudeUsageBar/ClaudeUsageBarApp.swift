@@ -68,9 +68,10 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     var title: String? { titleWithWarning(baseTitle, warning: planLimits.warnsInTitle) }
     /// The menu bar label: the chosen window's percent used, or `—` / `⚠` (wrapper missing, capture unreadable) with an empty bar.
     /// A window Claude Code left out of a good capture reads as 0%: it does that right after the window resets.
+    /// An Uncapped 5-hour window has nothing to show, so the gauge reads Weekly instead.
     func menuBarGauge(_ which: GaugeWindow) -> (percent: Double, text: String) {
         guard case .ok(let fiveHour, let weekly, _) = planLimits else { return (0, planLimits.warnsInTitle ? "⚠" : "—") }
-        let percent = (which == .weekly ? weekly : fiveHour)?.displayPercent(now: .now) ?? 0
+        let percent = (which == .weekly || fiveHourUncapped ? weekly : fiveHour)?.displayPercent(now: .now) ?? 0
         return (percent, "\(Int(percent.rounded()))%")
     }
     /// Settings shows it next to the Install / Uninstall buttons.
@@ -78,6 +79,8 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     /// Re-read when the capture file changes (and on popover open); assigned only on a change, so an FSEvents batch
     /// that did not touch the capture file (this app's own cache write) re-renders nothing.
     var planLimits = PlanLimits.noData
+    /// The plan has no 5-hour cap (see `FiveHourHistory`); the popover then shows Weekly alone.
+    var fiveHourUncapped: Bool { fiveHourHistory.isUncapped(planLimits) }
     /// The clock the Plan-limits header renders against; ticks every minute while the popover is open.
     var now = Date.now
     /// Why the last Install click failed.
@@ -144,6 +147,9 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     /// What was already announced; kept in a file in the support dir so a relaunch does not announce a window twice.
     @ObservationIgnored private var notificationState = NotificationState()
     private let notificationStateURL: URL
+    /// The last 5-hour `resets_at` seen, kept in a file so a relaunch still tells an Uncapped window from a fresh reset.
+    @ObservationIgnored private var fiveHourHistory = FiveHourHistory()
+    private let fiveHourHistoryURL: URL
     private let priceStore: PriceStore
     private let wrapper: StatuslineWrapper
     private let supportDir: URL
@@ -172,6 +178,9 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
         planLimits = readPlanLimits(supportDir: support, wrapperInstalled: installed)
         notificationStateURL = support.appending(path: "notification-state.json")
         notificationState = (try? JSONDecoder().decode(NotificationState.self, from: Data(contentsOf: notificationStateURL))) ?? .init()
+        fiveHourHistoryURL = support.appending(path: "five-hour-history.json")
+        fiveHourHistory = (try? JSONDecoder().decode(FiveHourHistory.self, from: Data(contentsOf: fiveHourHistoryURL))) ?? .init()
+        rememberFiveHour()
         // A capture already on disk at launch is evaluated once permission is settled; the persisted state stops repeats.
         Task {
             await notifier.requestAuthorization()
@@ -307,7 +316,16 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
         let latest = readPlanLimits(supportDir: supportDir, wrapperInstalled: wrapperInstalled)
         guard latest != planLimits else { return }
         planLimits = latest
+        rememberFiveHour()
         notifyOnCrossing()
+    }
+
+    private func rememberFiveHour() {
+        var updated = fiveHourHistory
+        updated.observe(planLimits)
+        guard updated != fiveHourHistory else { return }
+        fiveHourHistory = updated
+        try? JSONEncoder().encode(updated).write(to: fiveHourHistoryURL, options: .atomic)
     }
 
     /// Runs the pure decision on the current read and posts what it fires; thresholds and the flag are read from the
