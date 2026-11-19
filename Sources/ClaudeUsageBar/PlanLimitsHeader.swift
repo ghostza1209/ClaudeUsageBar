@@ -21,8 +21,10 @@ struct PlanLimitsHeader: View {
                     if !usage.fiveHourUncapped { ring("5-hour", fiveHour, weekly: false) }
                     ring("Weekly", sevenDay, weekly: true)
                 }
-                Text(ageText(capturedAt: capturedAt, now: usage.now)).font(.caption2)
-                    .foregroundStyle(isStale(capturedAt: capturedAt, now: usage.now) ? .orange : .secondary)
+                let stale = isStale(capturedAt: capturedAt, now: usage.now)
+                Text(ageText(capturedAt: capturedAt, now: usage.now) + (stale && usage.endpointNeedsLogin ? " · run claude /login" : ""))
+                    .font(.caption2)
+                    .foregroundStyle(stale ? .orange : .secondary)
                     .padding(.horizontal, 4)
             }
         }

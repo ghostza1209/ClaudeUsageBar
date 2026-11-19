@@ -85,6 +85,8 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     var now = Date.now
     /// Why the last Install click failed.
     var wrapperError: String?
+    /// The last usage-endpoint read failed for want of a Claude Code login; the stale age line says so.
+    var endpointNeedsLogin = false
     var summary: UsageSummary?
     let processes: ProcessMonitor
     let git: GitMonitor
@@ -123,6 +125,7 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
             guard popoverOpen else { return }
             recompute()
             refreshWrapper()
+            if pollFailures == 0, lastPoll.map({ Date.now.timeIntervalSince($0) > 60 }) ?? true { pollUsage() }
             now = .now
             let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.now = .now }
@@ -153,13 +156,26 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
     private let priceStore: PriceStore
     private let wrapper: StatuslineWrapper
     private let supportDir: URL
+    /// Nil in a sandbox run, which must not touch the real Keychain.
+    private let endpoint: UsageEndpoint?
+    /// The last good endpoint read; merged with the capture file so the newer wins.
+    @ObservationIgnored private var endpointLimits: PlanLimits?
+    @ObservationIgnored private var lastPoll: Date?
+    @ObservationIgnored private var pollFailures = 0
+    @ObservationIgnored private var polling = false
+    @ObservationIgnored private var pollTimer: Timer?
 
     init() {
         var home = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".claude")
         var support = URL.applicationSupportDirectory.appending(path: "ClaudeUsageBar")
         // Manual testing: run against a throwaway tree instead of the real ~/.claude and Application Support.
-        if let sandbox = ProcessInfo.processInfo.environment["CLAUDE_USAGE_BAR_SANDBOX"] {
+        let sandbox = ProcessInfo.processInfo.environment["CLAUDE_USAGE_BAR_SANDBOX"]
+        if let sandbox {
             (home, support) = (URL(filePath: sandbox).appending(path: ".claude"), URL(filePath: sandbox).appending(path: "support"))
+        }
+        endpoint = sandbox != nil ? nil : UsageEndpoint(readKeychain: { ClaudeCodeKeychain.read() }, writeKeychain: { ClaudeCodeKeychain.write($0) }) { request in
+            let (data, response) = try await URLSession.shared.data(for: request)
+            return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
         }
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         processes = ProcessMonitor(claudeHome: home)
@@ -200,6 +216,7 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
             Task { @MainActor in self?.filesChanged(events) }
         }
         armMidnight()
+        pollUsage()
         NotificationCenter.default.addObserver(forName: .NSCalendarDayChanged, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.dayMayHaveChanged() }
         }
@@ -312,8 +329,31 @@ private func gaugeImage(percent: Double, color: NSColor?) -> NSImage {
         refreshPlanLimits()
     }
 
+    /// Reads the usage endpoint, then re-arms itself: every 5 min, doubling per failure up to 30 min (see docs/adr/0002).
+    /// A Timer does not fire while the Mac sleeps, so polling pauses with it.
+    private func pollUsage() {
+        guard let endpoint, !polling else { return }
+        (polling, lastPoll) = (true, .now)
+        Task {
+            let result = await endpoint.fetch(now: .now)
+            polling = false
+            switch result {
+            case .success(let limits): (endpointLimits, pollFailures, endpointNeedsLogin) = (limits, 0, false)
+            case .failure(let error): (pollFailures, endpointNeedsLogin) = (pollFailures + 1, error == .needsLogin)
+            }
+            pollTimer?.invalidate()
+            let timer = Timer(timeInterval: min(300 * pow(2, Double(pollFailures)), 1800), repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated { self?.pollUsage() }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            pollTimer = timer
+            refreshPlanLimits()
+        }
+    }
+
     private func refreshPlanLimits() {
-        let latest = readPlanLimits(supportDir: supportDir, wrapperInstalled: wrapperInstalled)
+        let latest = mergePlanLimits(
+            capture: readPlanLimits(supportDir: supportDir, wrapperInstalled: wrapperInstalled), endpoint: endpointLimits)
         guard latest != planLimits else { return }
         planLimits = latest
         rememberFiveHour()
