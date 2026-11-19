@@ -33,7 +33,7 @@
 - 📈 **Spot the busy hours and heavy days.** A live tokens-per-minute chart covers the last hour and a cost chart covers 14 days. Hover either one for exact numbers.
 - 🧹 **Rein in runaway sessions.** Every running Claude Code session is listed with its CPU, memory and uptime, plus a button to stop it.
 - 🌿 **Keep an eye on your repos.** The Git tab shows the status of every repo Claude Code has been working in.
-- 🔒 **Private by design.** Everything runs on your Mac. The only network call fetches the price table from LiteLLM's public file on GitHub, once every 24 hours.
+- 🔒 **Private by design.** Your logs never leave your Mac. The network calls are Anthropic's own usage endpoint every 5 minutes, with Claude Code's login, and the price table from LiteLLM's public file on GitHub once every 24 hours.
 
 ## Install
 
@@ -53,15 +53,17 @@ Requires macOS 15 or later; the build is universal (Apple silicon and Intel).
 
 </details>
 
-## One setup step for Plan limits
+## Where Plan limits come from
 
-Claude Code only exposes your 5-hour and Weekly limits to its statusline (Ultra has no 5-hour limit, so only Weekly shows). In the popover, press **Install…** (or Settings › Statusline › Install). This points `statusLine.command` in `~/.claude/settings.json` at a small wrapper that saves the limits and then runs your previous statusline unchanged. **Uninstall** restores the previous setting. Without it the gauge shows `⚠`.
+Every 5 minutes the app asks Anthropic for your 5-hour and Weekly limits, using the login Claude Code keeps in your Keychain (`Claude Code-credentials`). So the gauges stay current whether you use the CLI, the desktop app or claude.ai. Ultra has no 5-hour limit, so only Weekly shows. When that login expires, the app refreshes it and saves the new token back for Claude Code. If the refresh is refused, the age line asks you to run `claude /login`. This uses an undocumented endpoint; see [ADR 0002](docs/adr/0002-plan-limits-from-the-oauth-usage-endpoint.md) for the trade-offs.
+
+The statusline is an optional fallback. Press **Install…** (or Settings › Statusline › Install) to point `statusLine.command` in `~/.claude/settings.json` at a small wrapper. It saves the limits whenever the CLI runs, then runs your previous statusline unchanged. **Uninstall** restores the previous setting. The gauge shows `⚠` only when neither source works.
 
 ## About the numbers
 
 | Number | Where it comes from | How far to trust it |
 |---|---|---|
-| 5-hour / Weekly % | Claude Code's own `rate_limits`, as reported by Anthropic | The official figure. It refreshes whenever Claude Code runs its statusline, and turns orange when it is over 10 minutes old. |
+| 5-hour / Weekly % | Anthropic's usage endpoint (every 5 min), or Claude Code's statusline `rate_limits`, whichever is newer | The official figure, covering every Claude surface. It turns orange when it is over 10 minutes old. |
 | Dollar amounts | Your token counts × API list prices | An **estimate**, not what you pay on a Pro/Max plan. Cross-checked against [ccusage](https://github.com/ryoppippi/ccusage) to within about 0.1%; both use the same LiteLLM prices. |
 | Tokens | `~/.claude/projects/**/*.jsonl` on this Mac | Cache reads dominate the total, so it reads much larger than the tokens you "typed". Other machines and claude.ai are not counted. |
 
@@ -69,7 +71,7 @@ Models with no known price (and `fast` speed responses) count as $0, so the esti
 
 ## Privacy
 
-It reads `~/.claude/projects/**/*.jsonl` and `~/.claude/sessions/`, and nothing is sent anywhere.
+It reads `~/.claude/projects/**/*.jsonl` and `~/.claude/sessions/`, and none of it is sent anywhere. Its only network calls are to Anthropic (your Plan limits, and refreshing Claude Code's login, with the token from your Keychain), to GitHub for prices and app updates.
 
 ## Build from source
 

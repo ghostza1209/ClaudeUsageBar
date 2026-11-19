@@ -71,10 +71,10 @@ struct SettingsView: View {
                 note("These thresholds also colour the Plan-limits rings.")
             }
             Card("Plan-limits source") {
-                row(usage.wrapperInstalled ? "checkmark.circle.fill" : "exclamationmark.circle.fill",
-                    usage.wrapperInstalled ? "Connected to Claude Code" : "Not connected",
-                    "A small statusline script passes your Plan limits from Claude Code to this app. Your existing statusline keeps working.",
-                    tint: usage.wrapperInstalled ? .green : .orange) {
+                row(usage.wrapperInstalled ? "checkmark.circle.fill" : "circle",
+                    usage.wrapperInstalled ? "Statusline fallback on" : "Statusline fallback off",
+                    "Plan limits come from Anthropic every 5 minutes. As a fallback, a small statusline script can also pass them from Claude Code whenever the CLI runs. Your existing statusline keeps working.",
+                    tint: usage.wrapperInstalled ? .green : .secondary) {
                     if usage.wrapperInstalled {
                         Button("Uninstall") { usage.uninstallWrapper() }
                     } else {
