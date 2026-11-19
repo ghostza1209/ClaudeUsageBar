@@ -8,6 +8,8 @@
 
 **Plan limits**: The windows a plan caps (the 5-hour window and Weekly window, minus any Uncapped window), expressed as percent used and time until reset.
 
+**Statusline fallback**: The optional second source of Plan limits, which Claude Code hands to the app only while the CLI runs. Plan limits come from Anthropic without it. Not a third-party dependency.
+
 **Uncapped window**: A window the user's plan does not cap, such as the 5-hour window on Ultra. Claude Code leaves it out of the rate limits it reports, so it is not shown. Not the same as a capped window that is merely empty right after a reset.
 
 **API list estimate**: What the logged tokens would have cost at Anthropic's public API prices. Not what the user actually pays on a subscription.
